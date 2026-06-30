@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LangChain Cheatsheet</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --ink: #172033;
+      --muted: #607086;
+      --line: #d8e1ec;
+      --card: #ffffff;
+      --code-bg: #edf6ff;
+      --code-line: #326aab;
+      --accent: #24589a;
+      --accent-soft: #eaf2ff;
+      --clay: #b35c2e;
+      --blue: #24589a;
+      --gold: #b7791f;
+      --green: #0d6a63;
+      --red: #be365d;
+      --shadow: 0 8px 24px rgba(23, 32, 51, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, #ffffff 0%, var(--bg) 360px),
+        var(--bg);
+      color: var(--ink);
+      line-height: 1.42;
+    }
+    a { color: inherit; text-decoration: none; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+
+    .sheet {
+      width: min(1320px, calc(100% - 32px));
+      margin: 26px auto 34px;
+    }
+
+    .hero {
+      border-radius: 14px;
+      padding: 28px 34px 24px;
+      color: #fff;
+      background: linear-gradient(115deg, #0f2f56 0%, #24589a 56%, #0d6a63 100%);
+      box-shadow: 0 16px 40px rgba(36, 88, 154, .18);
+    }
+    .hero-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .13);
+      border: 1px solid rgba(255, 255, 255, .25);
+      color: #f8fafc;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, .82);
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .14);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 22px;
+    }
+    .card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+    .card.span-2 { grid-column: span 2; }
+    .card.span-3 { grid-column: 1 / -1; }
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 50px;
+      padding: 12px 14px;
+      background: linear-gradient(90deg, #eef5ff 0%, #f5fbff 100%);
+      border-bottom: 1px solid var(--line);
+    }
+    .icon {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      color: #fff;
+      background: #24589a;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18);
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .icon.green { background: #0d6a63; }
+    .icon.blue { background: #24589a; }
+    .icon.gold { background: #b7791f; }
+    .icon.red { background: #be365d; }
+    .title {
+      min-width: 0;
+    }
+    h2 {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.1;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .caption {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 650;
+    }
+    .body {
+      padding: 14px;
+    }
+    .mini {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .fact {
+      border-left: 3px solid #7da8d4;
+      padding-left: 8px;
+      min-width: 0;
+      font-size: 11px;
+      color: #27364d;
+    }
+    .fact b {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--accent);
+      font-size: 9px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .fact code {
+      color: #1d4f8f;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 0;
+      padding: 13px 14px;
+      max-height: 345px;
+      overflow: auto;
+      border-radius: 8px;
+      border-left: 4px solid var(--code-line);
+      background: var(--code-bg);
+      color: #163963;
+      font-size: 11px;
+      line-height: 1.55;
+      white-space: pre;
+    }
+    .note {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .note p {
+      margin: 0;
+      border-radius: 8px;
+      padding: 8px 9px;
+      color: #27364d;
+      background: #f4f8fd;
+      font-size: 10.5px;
+    }
+    .note b { color: var(--accent); }
+    .note .bad b { color: var(--red); }
+    .mono-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .mono-list li {
+      border-radius: 8px;
+      background: var(--code-bg);
+      border-left: 4px solid var(--code-line);
+      padding: 9px 10px;
+      color: #27364d;
+      font-size: 11px;
+    }
+    .mono-list code { color: #1d4f8f; font-weight: 800; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 20px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: #eaf2ff;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .footer a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .sheet { width: 100%; margin: 0; padding: 0; }
+      .card { break-inside: avoid; box-shadow: none; }
+      .hero { box-shadow: none; }
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card.span-2, .card.span-3 { grid-column: 1 / -1; }
+    }
+    @media (max-width: 660px) {
+      .sheet { width: min(100% - 20px, 1320px); margin-top: 10px; }
+      .hero { padding: 22px 18px; }
+      .grid, .mini, .note, .mono-list { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+      .footer { display: block; }
+      .footer span { display: block; margin-top: 7px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header class="hero">
+      <div class="hero-top">
+        <div class="logo">LC</div>
+        <div>
+          <h1>LangChain Cheatsheet</h1>
+          <p class="subtitle">Core components, imports, classes, key methods, parameters, quick examples</p>
+        </div>
+      </div>
+      <nav class="chips" aria-label="Cheatsheet sections">
+        <a class="chip" href="#models">LLMs &amp; Chat Models</a>
+        <a class="chip" href="#prompts">Prompt Templates</a>
+        <a class="chip" href="#chains">Chains</a>
+        <a class="chip" href="#memory">Memory</a>
+        <a class="chip" href="#agents">Agents &amp; Tools</a>
+        <a class="chip" href="#retrievers">Retrievers &amp; RAG</a>
+        <a class="chip" href="#parsers">Output Parsers</a>
+        <a class="chip" href="#embeddings">Embeddings</a>
+        <a class="chip" href="#vectorstores">Vector Stores</a>
+      </nav>
+    </header>
+
+    <section class="grid" aria-label="LangChain core components">
+      <article id="models" class="card">
+        <div class="card-head">
+          <div class="icon blue">LM</div>
+          <div class="title">
+            <h2>LLMs &amp; Chat Models</h2>
+            <div class="caption">Core language model wrappers</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Wrapper chuẩn cho provider model; output thường là <code>AIMessage</code>.</div>
+            <div class="fact"><b>Khi dùng</b> Gọi model trực tiếp, chain, agent, classification, extraction.</div>
+            <div class="fact"><b>Constructor</b> <code>init_chat_model(model, temperature, max_tokens, timeout)</code></div>
+            <div class="fact"><b>Methods</b> <code>invoke</code>, <code>stream</code>, <code>batch</code>, <code>with_structured_output</code></div>
+          </div>
+          <pre><code>from langchain.chat_models import init_chat_model
+
+model = init_chat_model(
+    "openai:gpt-5.5",
+    temperature=0.2,
+    max_tokens=800,
+    timeout=30,
+    max_retries=6,
+)
+
+msg = model.invoke([
+    {"role": "system", "content": "Answer in Vietnamese."},
+    {"role": "user", "content": "LangChain la gi?"},
+])
+
+for token in model.stream("Explain LCEL"):
+    print(token.content, end="")</code></pre>
+          <div class="note">
+            <p><b>Best:</b> đặt key qua env, cấu hình timeout/retry, log usage và latency.</p>
+            <p class="bad"><b>Mistake:</b> hard-code API key hoặc giả định mọi provider hỗ trợ tool calling như nhau.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="prompts" class="card">
+        <div class="card-head">
+          <div class="icon gold">PT</div>
+          <div class="title">
+            <h2>Prompt Templates</h2>
+            <div class="caption">Dynamic prompt construction</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Template cho system/human/AI messages có biến.</div>
+            <div class="fact"><b>Khi dùng</b> Reuse instruction, chèn history, tạo chain có input rõ.</div>
+            <div class="fact"><b>Constructor</b> <code>from_messages</code>, <code>from_template</code></div>
+            <div class="fact"><b>Methods</b> <code>invoke</code>, <code>format_messages</code>, <code>partial</code>, <code>append</code></div>
+          </div>
+          <pre><code>from langchain_core.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+)
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a {role}."),
+    MessagesPlaceholder("history"),
+    ("human", "{question}"),
+])
+
+messages = prompt.invoke({
+    "role": "LangChain tutor",
+    "history": [],
+    "question": "What is Runnable?",
+})</code></pre>
+          <div class="note">
+            <p><b>Best:</b> đặt tên biến rõ, system prompt cụ thể, tách prompt khỏi business logic.</p>
+            <p class="bad"><b>Mistake:</b> dùng f-string với input user chưa kiểm soát hoặc quên truyền biến.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="parsers" class="card">
+        <div class="card-head">
+          <div class="icon">OP</div>
+          <div class="title">
+            <h2>Output Parsers</h2>
+            <div class="caption">Parse and structure LLM output</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Chuyển output model sang string, JSON hoặc object app cần.</div>
+            <div class="fact"><b>Khi dùng</b> LCEL nhỏ, model chưa có native structured output.</div>
+            <div class="fact"><b>Constructor</b> <code>StrOutputParser()</code>, <code>JsonOutputParser()</code></div>
+            <div class="fact"><b>Methods</b> <code>parse</code>, <code>invoke</code>, <code>get_format_instructions</code></div>
+          </div>
+          <pre><code>from langchain_core.output_parsers import (
+    StrOutputParser,
+    JsonOutputParser,
+)
+
+parser = JsonOutputParser()
+prompt = ChatPromptTemplate.from_template(
+    "Return JSON only: {topic}\n{format}"
+)
+
+chain = prompt | model | parser
+data = chain.invoke({
+    "topic": "retriever",
+    "format": parser.get_format_instructions(),
+})</code></pre>
+          <div class="note">
+            <p><b>Best:</b> với output quan trọng, ưu tiên schema Pydantic + structured output.</p>
+            <p class="bad"><b>Mistake:</b> regex JSON từ text tự nhiên hoặc không bắt lỗi parse.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="chains" class="card span-2">
+        <div class="card-head">
+          <div class="icon">CH</div>
+          <div class="title">
+            <h2>Chains - LCEL</h2>
+            <div class="caption">Composable pipeline with pipe operator</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Runnable là interface chung cho prompt, model, parser, retriever.</div>
+            <div class="fact"><b>Khi dùng</b> Flow cố định: prompt -> model -> parser; map/merge nhiều nhánh.</div>
+            <div class="fact"><b>Constructor</b> <code>RunnableLambda(fn)</code>, <code>RunnableParallel(...)</code></div>
+            <div class="fact"><b>Methods</b> <code>invoke</code>, <code>ainvoke</code>, <code>batch</code>, <code>stream</code>, <code>with_retry</code></div>
+          </div>
+          <pre><code>from langchain_core.runnables import RunnableLambda, RunnableParallel
+from langchain_core.output_parsers import StrOutputParser
+
+prompt = ChatPromptTemplate.from_template(
+    "Summarize {topic} in 3 bullets, Vietnamese."
+)
+
+chain = prompt | model | StrOutputParser()
+print(chain.invoke({"topic": "LangChain Runnable"}))
+
+parallel = RunnableParallel(
+    summary=chain,
+    upper=RunnableLambda(lambda x: x["topic"].upper()),
+)
+
+print(parallel.invoke({"topic": "LCEL"}))
+
+reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> dùng chain cho tác vụ deterministic, dễ test và dễ stream.</p>
+            <p class="bad"><b>Mistake:</b> dùng agent cho một pipeline đơn giản hoặc không kiểm soát kiểu input/output.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="memory" class="card">
+        <div class="card-head">
+          <div class="icon red">ME</div>
+          <div class="title">
+            <h2>Memory</h2>
+            <div class="caption">Conversation history management</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Short-term memory lưu state theo conversation thread.</div>
+            <div class="fact"><b>Khi dùng</b> Chat nhiều lượt, resume agent, user context.</div>
+            <div class="fact"><b>Constructor</b> <code>create_agent(..., checkpointer=...)</code></div>
+            <div class="fact"><b>Parameter</b> <code>thread_id</code> trong <code>configurable</code></div>
+          </div>
+          <pre><code>from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
+agent = create_agent(
+    model="openai:gpt-5.5",
+    tools=[],
+    checkpointer=InMemorySaver(),
+)
+
+config = {"configurable": {"thread_id": "user-42"}}
+
+agent.invoke({"messages": [{"role": "user",
+    "content": "My name is Diem."}]}, config)
+
+result = agent.invoke({"messages": [{"role": "user",
+    "content": "What is my name?"}]}, config)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> production dùng Postgres/SQLite checkpointer và trim/summarize history.</p>
+            <p class="bad"><b>Mistake:</b> dùng InMemorySaver cho production hoặc đổi thread_id mỗi request.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="embeddings" class="card">
+        <div class="card-head">
+          <div class="icon green">EM</div>
+          <div class="title">
+            <h2>Embeddings</h2>
+            <div class="caption">Text to vector representations</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Biến text thành vector để tìm kiếm ngữ nghĩa.</div>
+            <div class="fact"><b>Khi dùng</b> RAG, semantic search, clustering, duplicate detection.</div>
+            <div class="fact"><b>Constructor</b> <code>OpenAIEmbeddings(model=...)</code></div>
+            <div class="fact"><b>Methods</b> <code>embed_query</code>, <code>embed_documents</code></div>
+          </div>
+          <pre><code>from langchain_openai import OpenAIEmbeddings
+
+emb = OpenAIEmbeddings(
+    model="text-embedding-3-small"
+)
+
+query_vec = emb.embed_query("What is RAG?")
+doc_vecs = emb.embed_documents([
+    "Retrieval augments generation.",
+    "Tools let agents call functions.",
+])</code></pre>
+          <div class="note">
+            <p><b>Best:</b> dùng cùng embedding model cho index và query, lưu version model.</p>
+            <p class="bad"><b>Mistake:</b> trộn vectors từ nhiều model hoặc embed raw HTML/noise.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="vectorstores" class="card">
+        <div class="card-head">
+          <div class="icon green">VS</div>
+          <div class="title">
+            <h2>Vector Stores</h2>
+            <div class="caption">Store and search embeddings</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Lưu vector + metadata, tìm documents tương tự.</div>
+            <div class="fact"><b>Khi dùng</b> Knowledge base, semantic search, RAG corpus.</div>
+            <div class="fact"><b>Constructor</b> <code>InMemoryVectorStore(embedding=emb)</code></div>
+            <div class="fact"><b>Methods</b> <code>add_documents</code>, <code>similarity_search</code>, <code>as_retriever</code></div>
+          </div>
+          <pre><code>from langchain_core.vectorstores import InMemoryVectorStore
+
+store = InMemoryVectorStore(emb)
+store.add_documents(chunks)
+
+docs = store.similarity_search(
+    "How do agents use tools?",
+    k=4,
+)
+
+retriever = store.as_retriever(
+    search_kwargs={"k": 4}
+)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> production chọn store có persistence, filtering, backup.</p>
+            <p class="bad"><b>Mistake:</b> dùng in-memory store cho dữ liệu thật hoặc thiếu source metadata.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="retrievers" class="card">
+        <div class="card-head">
+          <div class="icon red">RT</div>
+          <div class="title">
+            <h2>Retrievers</h2>
+            <div class="caption">Fetch relevant docs for RAG</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Nhận query, trả về danh sách <code>Document</code> liên quan.</div>
+            <div class="fact"><b>Khi dùng</b> 2-step RAG, agentic RAG, hybrid search.</div>
+            <div class="fact"><b>Constructor</b> <code>vectorstore.as_retriever(...)</code></div>
+            <div class="fact"><b>Methods</b> <code>invoke</code>, <code>ainvoke</code>, <code>batch</code></div>
+          </div>
+          <pre><code>retriever = store.as_retriever(
+    search_type="similarity",
+    search_kwargs={"k": 5},
+)
+
+docs = retriever.invoke("What is create_agent?")
+
+def format_docs(docs):
+    return "\n\n".join(
+        f"Source: {d.metadata.get('source')}\n{d.page_content}"
+        for d in docs
+    )</code></pre>
+          <div class="note">
+            <p><b>Best:</b> đánh giá recall riêng, dùng metadata filters và cite source.</p>
+            <p class="bad"><b>Mistake:</b> nhồi quá nhiều docs làm context loãng hoặc không đo retrieval quality.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon blue">DL</div>
+          <div class="title">
+            <h2>Document Loaders</h2>
+            <div class="caption">Load data from many sources</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Load PDF, web, CSV, folder, database thành documents.</div>
+            <div class="fact"><b>Khi dùng</b> Ingest tài liệu trước khi split/embed.</div>
+            <div class="fact"><b>Constructor</b> Provider/package specific loader.</div>
+            <div class="fact"><b>Methods</b> <code>load</code>, <code>lazy_load</code>, <code>load_and_split</code></div>
+          </div>
+          <pre><code>from langchain_community.document_loaders import (
+    PyPDFLoader,
+    WebBaseLoader,
+    DirectoryLoader,
+)
+
+pdf_docs = PyPDFLoader("report.pdf").load()
+web_docs = WebBaseLoader(
+    "https://example.com"
+).load()
+
+# Loaders return list[Document]</code></pre>
+          <div class="note">
+            <p><b>Best:</b> normalize encoding, remove boilerplate, lưu source/page trong metadata.</p>
+            <p class="bad"><b>Mistake:</b> ingest HTML thô hoặc không xử lý duplicate documents.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon red">TS</div>
+          <div class="title">
+            <h2>Text Splitters</h2>
+            <div class="caption">Chunk documents for retrieval</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Chia tài liệu dài thành chunks phù hợp embedding/context.</div>
+            <div class="fact"><b>Khi dùng</b> Corpus dài, PDFs, docs, markdown, code.</div>
+            <div class="fact"><b>Constructor</b> <code>RecursiveCharacterTextSplitter(...)</code></div>
+            <div class="fact"><b>Methods</b> <code>split_text</code>, <code>split_documents</code>, <code>create_documents</code></div>
+          </div>
+          <pre><code>from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,
+    chunk_overlap=120,
+    add_start_index=True,
+)
+
+chunks = splitter.split_documents(pdf_docs)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> tune chunk size bằng query thật, giữ overlap vừa đủ.</p>
+            <p class="bad"><b>Mistake:</b> chunk quá nhỏ mất context, quá lớn giảm recall.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon green">DO</div>
+          <div class="title">
+            <h2>Document Object</h2>
+            <div class="caption">Core data structure in LangChain</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Container cho text và metadata trong RAG.</div>
+            <div class="fact"><b>Khi dùng</b> Loaders, splitters, vector stores, retrievers.</div>
+            <div class="fact"><b>Constructor</b> <code>Document(page_content, metadata, id)</code></div>
+            <div class="fact"><b>Fields</b> <code>page_content</code>, <code>metadata</code>, <code>id</code></div>
+          </div>
+          <pre><code>from langchain_core.documents import Document
+
+doc = Document(
+    page_content="LangChain agents call tools.",
+    metadata={
+        "source": "notes.md",
+        "section": "agents",
+    },
+)
+
+print(doc.page_content)
+print(doc.metadata["source"])</code></pre>
+          <div class="note">
+            <p><b>Best:</b> metadata cần source, page/section, timestamp để cite và debug.</p>
+            <p class="bad"><b>Mistake:</b> dùng Document như chat message hoặc bỏ metadata nguồn.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="agents" class="card span-2">
+        <div class="card-head">
+          <div class="icon green">AG</div>
+          <div class="title">
+            <h2>Agents &amp; Tools</h2>
+            <div class="caption">React, tool-calling, autonomous decision-making</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Agent = model + tools + prompt + middleware chạy trên LangGraph.</div>
+            <div class="fact"><b>Khi dùng</b> Model cần tự quyết định gọi tool/API/database nhiều bước.</div>
+            <div class="fact"><b>Constructor</b> <code>create_agent(model, tools, system_prompt, response_format)</code></div>
+            <div class="fact"><b>Methods</b> <code>invoke</code>, <code>stream</code>, <code>stream_events</code></div>
+          </div>
+          <pre><code>from pydantic import BaseModel, Field
+from langchain.agents import create_agent
+from langchain.tools import tool
+
+class SearchInput(BaseModel):
+    query: str = Field(description="Search query")
+
+@tool(args_schema=SearchInput)
+def search_docs(query: str) -> str:
+    """Search internal docs."""
+    return "Relevant snippet about LangChain agents."
+
+agent = create_agent(
+    model="openai:gpt-5.5",
+    tools=[search_docs],
+    system_prompt="Answer briefly. Use tools when needed.",
+)
+
+result = agent.invoke({
+    "messages": [{"role": "user",
+                  "content": "Agent differs from chain?"}]
+})
+print(result["messages"][-1].content)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> tool names snake_case, schema chặt, docstring nói rõ khi nào dùng.</p>
+            <p class="bad"><b>Mistake:</b> quá nhiều tool trùng chức năng hoặc tool side effect không approval.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon blue">MS</div>
+          <div class="title">
+            <h2>Messages API</h2>
+            <div class="caption">HumanMessage, AIMessage, SystemMessage</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Role-based context cho chat models và agents.</div>
+            <div class="fact"><b>Khi dùng</b> Chat history, system policy, tool calling, multimodal blocks.</div>
+            <div class="fact"><b>Classes</b> <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code></div>
+            <div class="fact"><b>Parameter</b> <code>content</code>, metadata, ids, tool calls.</div>
+          </div>
+          <pre><code>from langchain.messages import (
+    SystemMessage,
+    HumanMessage,
+)
+
+messages = [
+    SystemMessage("You are a Python senior."),
+    HumanMessage("Explain Runnable in 2 lines."),
+]
+
+response = model.invoke(messages)
+print(response.content)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> dùng messages cho multi-turn thay vì nối chuỗi prompt thủ công.</p>
+            <p class="bad"><b>Mistake:</b> nhồi toàn bộ history vô hạn vào context window.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card span-2">
+        <div class="card-head">
+          <div class="icon red">RG</div>
+          <div class="title">
+            <h2>Full RAG Pipeline</h2>
+            <div class="caption">Complete Retrieval-Augmented Generation with LCEL</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Retrieve context ở query time rồi đưa cho model trả lời.</div>
+            <div class="fact"><b>Khi dùng</b> Hỏi đáp trên docs riêng, dữ liệu thay đổi, cần trích nguồn.</div>
+            <div class="fact"><b>Pattern</b> Load -> split -> embed -> store -> retrieve -> answer.</div>
+            <div class="fact"><b>Methods</b> <code>load</code>, <code>split_documents</code>, <code>as_retriever</code>, <code>invoke</code></div>
+          </div>
+          <pre><code>from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+docs = PyPDFLoader("handbook.pdf").load()
+chunks = RecursiveCharacterTextSplitter(
+    chunk_size=900,
+    chunk_overlap=160,
+).split_documents(docs)
+
+store = InMemoryVectorStore(emb)
+store.add_documents(chunks)
+retriever = store.as_retriever(search_kwargs={"k": 4})
+
+def format_docs(docs):
+    return "\n\n".join(
+        f"Source: {d.metadata.get('source')}\n{d.page_content}"
+        for d in docs
+    )
+
+prompt = ChatPromptTemplate.from_template("""
+Answer only from context. If missing, say you do not know.
+Context:
+{context}
+Question: {question}
+""")
+
+question = "What is the main policy?"
+context = format_docs(retriever.invoke(question))
+answer = (prompt | model | StrOutputParser()).invoke({
+    "context": context,
+    "question": question,
+})</code></pre>
+          <div class="note">
+            <p><b>Best:</b> cite source, evaluate retrieval riêng, thêm reranker khi corpus lớn.</p>
+            <p class="bad"><b>Mistake:</b> để model trả lời ngoài context hoặc không lọc metadata theo quyền user.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon blue">CB</div>
+          <div class="title">
+            <h2>Callbacks &amp; LangSmith</h2>
+            <div class="caption">Logging, tracing, monitoring</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Trace model calls, tools, state, latency, output quality.</div>
+            <div class="fact"><b>Khi dùng</b> Debug agents, evaluate prompts/RAG, production monitoring.</div>
+            <div class="fact"><b>Setup</b> Env vars hoặc callback handlers.</div>
+            <div class="fact"><b>Scope</b> Chains, agents, retrievers, tools, model calls.</div>
+          </div>
+          <pre><code>import os
+
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_API_KEY"] = "lsv2_..."
+os.environ["LANGSMITH_PROJECT"] = "my-project"
+
+# Optional callbacks
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.tracers import LangChainTracer</code></pre>
+          <div class="note">
+            <p><b>Best:</b> trace dev/staging, thêm tags/metadata theo flow.</p>
+            <p class="bad"><b>Mistake:</b> debug agent chỉ bằng print hoặc trace PII chưa scrub.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon">LG</div>
+          <div class="title">
+            <h2>LangGraph Basics</h2>
+            <div class="caption">Stateful multi-agent workflows</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Graph runtime cho stateful agents, checkpoints, control flow.</div>
+            <div class="fact"><b>Khi dùng</b> Workflow nhiều bước, human-in-the-loop, durable execution.</div>
+            <div class="fact"><b>Constructor</b> <code>StateGraph(State)</code></div>
+            <div class="fact"><b>Methods</b> <code>add_node</code>, <code>add_edge</code>, <code>compile</code></div>
+          </div>
+          <pre><code>from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class State(TypedDict):
+    messages: list
+
+def call_model(state: State):
+    return {"messages": [
+        model.invoke(state["messages"])
+    ]}
+
+graph = StateGraph(State)
+graph.add_node("model", call_model)
+graph.add_edge(START, "model")
+graph.add_edge("model", END)
+app = graph.compile()</code></pre>
+          <div class="note">
+            <p><b>Best:</b> dùng LangChain agent trước; chuyển graph khi cần control flow rõ.</p>
+            <p class="bad"><b>Mistake:</b> tự build graph phức tạp khi <code>create_agent</code> đã đủ.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon red">ENV</div>
+          <div class="title">
+            <h2>Environment Setup</h2>
+            <div class="caption">Install packages and set API keys</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> LangChain core + provider integrations + community loaders.</div>
+            <div class="fact"><b>Khi dùng</b> Bắt đầu project hoặc chuẩn hóa dependency.</div>
+            <div class="fact"><b>Packages</b> <code>langchain</code>, <code>langchain-openai</code>, <code>langchain-community</code></div>
+            <div class="fact"><b>Security</b> API keys qua environment, không commit secrets.</div>
+          </div>
+          <pre><code>pip install -U langchain langchain-openai
+pip install -U langchain-community langchain-text-splitters
+pip install -U pypdf beautifulsoup4
+
+# .env
+OPENAI_API_KEY="sk-..."
+LANGSMITH_TRACING="true"
+LANGSMITH_API_KEY="lsv2_..."
+
+python -c "import langchain; print(langchain.__version__)"</code></pre>
+          <div class="note">
+            <p><b>Best:</b> pin versions trong production và tách env dev/staging/prod.</p>
+            <p class="bad"><b>Mistake:</b> cài quá nhiều provider hoặc commit file chứa secrets.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon gold">FS</div>
+          <div class="title">
+            <h2>Few-Shot Prompting</h2>
+            <div class="caption">Examples in prompt templates</div>
+          </div>
+        </div>
+        <div class="body">
+          <div class="mini">
+            <div class="fact"><b>Khái niệm</b> Đưa ví dụ input/output để model học format và style.</div>
+            <div class="fact"><b>Khi dùng</b> Classification, extraction, rewrite style, formatting khó.</div>
+            <div class="fact"><b>Constructor</b> <code>FewShotPromptTemplate(...)</code></div>
+            <div class="fact"><b>Parameters</b> <code>examples</code>, <code>example_prompt</code>, <code>suffix</code></div>
+          </div>
+          <pre><code>from langchain_core.prompts import (
+    FewShotPromptTemplate,
+    PromptTemplate,
+)
+
+examples = [
+    {"input": "happy", "output": "positive"},
+    {"input": "late", "output": "negative"},
+]
+
+example_prompt = PromptTemplate.from_template(
+    "Input: {input}\nLabel: {output}"
+)
+
+prompt = FewShotPromptTemplate(
+    examples=examples,
+    example_prompt=example_prompt,
+    suffix="Input: {text}\nLabel:",
+    input_variables=["text"],
+)</code></pre>
+          <div class="note">
+            <p><b>Best:</b> ví dụ ngắn, nhất quán, bao phủ edge cases quan trọng.</p>
+            <p class="bad"><b>Mistake:</b> đưa ví dụ mâu thuẫn hoặc quá dài làm tốn context.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="card span-3">
+        <div class="card-head">
+          <div class="icon green">MAP</div>
+          <div class="title">
+            <h2>Quick Decision Map</h2>
+            <div class="caption">Pick the right LangChain component</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>Runnable chain</code><br>Prompt -> model -> parser cố định, dễ test.</li>
+            <li><code>create_agent</code><br>Model cần tự chọn tool hoặc làm nhiều bước.</li>
+            <li><code>response_format</code><br>App cần JSON/schema đáng tin cậy.</li>
+            <li><code>Retriever</code><br>Cần lấy docs liên quan tại query time.</li>
+            <li><code>Memory/checkpointer</code><br>Chat nhiều lượt và cần resume theo thread.</li>
+            <li><code>Middleware</code><br>Retries, PII filtering, human approval, guardrails.</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <div>
+        LangChain Cheatsheet - Core Components Reference.
+        Tài liệu nguồn được đối chiếu từ docs chính thức ngày 2026-06-30.
+      </div>
+      <span>
+        <a href="https://docs.langchain.com/oss/python/langchain/overview">langchain docs</a>
+        · <a href="https://reference.langchain.com/python/">python reference</a>
+        · <code>pip install -U langchain</code>
+      </span>
+    </footer>
+  </main>
+</body>
+</html>
