@@ -199,24 +199,24 @@
 
     pre[class*="language-"],
     code[class*="language-"] {
-      background: #f3f8ff;
+      background: #fffaff;
       color: #172033;
       text-shadow: none;
       font-size: 11px;
     }
     pre[class*="language-"] {
-      border-left-color: #326aab;
-      box-shadow: inset 0 0 0 1px rgba(50, 106, 171, .16);
+      border-left-color: #7c3aed;
+      box-shadow: inset 0 0 0 1px rgba(124, 58, 237, .18), 0 8px 18px rgba(36, 88, 154, .08);
     }
-    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #71839a; font-style: italic; }
-    .token.keyword { color: #1d4f8f; font-weight: 800; }
-    .token.string, .token.char { color: #0d6a63; }
-    .token.function { color: #24589a; }
-    .token.class-name, .token.constant { color: #9a5b13; font-weight: 750; }
-    .token.number, .token.boolean { color: #be365d; }
-    .token.operator, .token.punctuation { color: #4b5d73; }
-    .token.builtin, .token.decorator { color: #7a4aa0; }
-    .token.attr-name, .token.property { color: #b35c2e; }
+    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #69758a; font-style: italic; }
+    .token.keyword { color: #7c3aed; font-weight: 900; }
+    .token.string, .token.char { color: #047857; font-weight: 650; }
+    .token.function { color: #0369a1; font-weight: 800; }
+    .token.class-name, .token.constant { color: #b45309; font-weight: 850; }
+    .token.number, .token.boolean { color: #dc2626; font-weight: 800; }
+    .token.operator, .token.punctuation { color: #334155; }
+    .token.builtin, .token.decorator { color: #be185d; font-weight: 800; }
+    .token.attr-name, .token.property { color: #c2410c; font-weight: 750; }
 
     .note {
       display: grid;
@@ -1068,6 +1068,79 @@ result = agent.invoke({
             <li><code>search_type="mmr"</code><br>Maximal marginal relevance improves diversity in retrieved chunks.</li>
             <li><code>metadata filters</code><br>Filter by tenant, permission, product, date, source type, or document version before answering.</li>
             <li><code>citation contract</code><br>Return source ids/pages from <code>Document.metadata</code>; never cite generated text.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article id="real-life-langchain" class="card span-3">
+        <div class="card-head">
+          <div class="icon blue">PRO</div>
+          <div class="title">
+            <h2>Real-Life LangChain Architecture</h2>
+            <div class="caption">How production apps usually compose LangChain pieces</div>
+          </div>
+        </div>
+        <div class="body">
+          <pre class="language-python"><code class="language-python"># Typical production shape
+request
+  -> input validation / auth / tenant context
+  -> Runnable chain OR create_agent
+  -> retriever / tools / structured output
+  -> guardrails / human approval for risky actions
+  -> LangSmith trace + eval metadata
+  -> response with citations, schema, usage, latency
+
+# Keep these versioned:
+prompt_version = "support_triage_v4"
+retriever_version = "kb_2026_06_30"
+model_policy = {"primary": "openai:gpt-4.1", "fallback": "openai:gpt-4.1-mini"}</code></pre>
+          <ul class="mono-list">
+            <li><code>Stable inputs</code><br>Validate user input, tenant id, permissions, locale, and expected output schema before model calls.</li>
+            <li><code>Composable core</code><br>Use LCEL for deterministic flows; use agents only when the model must choose tools or iterate.</li>
+            <li><code>Explicit context</code><br>Pass runtime metadata through config/tags, not hidden globals; preserve traceability.</li>
+            <li><code>Source contracts</code><br>For RAG, every answer should carry source ids, chunk ids, retrieval score, and index version.</li>
+            <li><code>Side effects</code><br>Tools that write, send, delete, purchase, or mutate state need confirmation or human approval.</li>
+            <li><code>Fallbacks</code><br>Handle model timeout, tool failure, empty retrieval, parse failure, and rate-limit separately.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article id="middleware-context" class="card span-2">
+        <div class="card-head">
+          <div class="icon gold">MW</div>
+          <div class="title">
+            <h2>Middleware &amp; Context Engineering</h2>
+            <div class="caption">Best practices for policy, dynamic prompts, PII, retries, and runtime state</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>Dynamic system prompt</code><br>Build system instructions from user role, product, locale, task type, and risk level.</li>
+            <li><code>PII policy</code><br>Scrub or redact sensitive fields before tracing; never log raw secrets, tokens, or full customer records.</li>
+            <li><code>Tool policy</code><br>Block risky tools until confirmation; add allowlists by tenant/user role.</li>
+            <li><code>Retry policy</code><br>Retry transient provider/tool errors, not deterministic schema or permission errors.</li>
+            <li><code>Human-in-loop</code><br>Use approval gates for financial, legal, medical, account, delete, or external communication actions.</li>
+            <li><code>Context budget</code><br>Summarize history, trim documents, and prefer compact context over dumping everything into the model.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article id="eval-ops" class="card">
+        <div class="card-head">
+          <div class="icon red">EVAL</div>
+          <div class="title">
+            <h2>Evaluation &amp; Ops</h2>
+            <div class="caption">What to measure before calling a chain or agent production-ready</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>Golden set</code><br>Real user questions, expected outputs, must-not-answer cases, empty-retrieval cases.</li>
+            <li><code>Regression</code><br>Run evals on every prompt, retriever, model, chunking, or tool schema change.</li>
+            <li><code>Trace tags</code><br>Tag by app, feature, user segment, prompt version, index version, and experiment id.</li>
+            <li><code>Metrics</code><br>Correctness, groundedness, refusal quality, latency, token cost, tool error rate, parse failure rate.</li>
+            <li><code>Debug order</code><br>Check retrieval first, then prompt, then model, then parser, then tool permissions.</li>
+            <li><code>Release gates</code><br>Ship only when eval score, latency, and cost stay inside explicit thresholds.</li>
           </ul>
         </div>
       </article>
