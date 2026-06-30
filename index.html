@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LangChain Cheatsheet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
   <style>
     :root {
       --bg: #f6f8fb;
@@ -195,6 +196,28 @@
       line-height: 1.55;
       white-space: pre;
     }
+
+    pre[class*="language-"],
+    code[class*="language-"] {
+      background: #0f172a;
+      color: #dbeafe;
+      text-shadow: none;
+      font-size: 11px;
+    }
+    pre[class*="language-"] {
+      border-left-color: #38bdf8;
+      box-shadow: inset 0 0 0 1px rgba(148, 163, 184, .18);
+    }
+    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #94a3b8; }
+    .token.keyword { color: #f472b6; }
+    .token.string, .token.char { color: #86efac; }
+    .token.function { color: #93c5fd; }
+    .token.class-name, .token.constant { color: #fde68a; }
+    .token.number, .token.boolean { color: #fbbf24; }
+    .token.operator, .token.punctuation { color: #cbd5e1; }
+    .token.builtin, .token.decorator { color: #67e8f9; }
+    .token.attr-name, .token.property { color: #fca5a5; }
+
     .note {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -301,15 +324,15 @@
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Wrapper chuẩn cho provider model; output thường là <code>AIMessage</code>.</div>
-            <div class="fact"><b>Khi dùng</b> Gọi model trực tiếp, chain, agent, classification, extraction.</div>
+            <div class="fact"><b>Concept</b> Standard wrapper for model providers; chat output is usually an <code>AIMessage</code>.</div>
+            <div class="fact"><b>Use when</b> Direct model calls, chains, agents, classification, and extraction.</div>
             <div class="fact"><b>Constructor</b> <code>init_chat_model(model, temperature, max_tokens, timeout)</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>stream</code>, <code>batch</code>, <code>with_structured_output</code></div>
           </div>
-          <pre><code>from langchain.chat_models import init_chat_model
+          <pre class="language-python"><code class="language-python">from langchain.chat_models import init_chat_model
 
 model = init_chat_model(
-    "openai:gpt-5.5",
+    "openai:gpt-4.1",
     temperature=0.2,
     max_tokens=800,
     timeout=30,
@@ -324,8 +347,8 @@ msg = model.invoke([
 for token in model.stream("Explain LCEL"):
     print(token.content, end="")</code></pre>
           <div class="note">
-            <p><b>Best:</b> đặt key qua env, cấu hình timeout/retry, log usage và latency.</p>
-            <p class="bad"><b>Mistake:</b> hard-code API key hoặc giả định mọi provider hỗ trợ tool calling như nhau.</p>
+            <p><b>Best:</b> Set keys through environment variables, configure timeout/retry, and log usage plus latency.</p>
+            <p class="bad"><b>Mistake:</b> Hard-code API keys or assume every provider supports tool calling the same way.</p>
           </div>
         </div>
       </article>
@@ -340,12 +363,12 @@ for token in model.stream("Explain LCEL"):
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Template cho system/human/AI messages có biến.</div>
-            <div class="fact"><b>Khi dùng</b> Reuse instruction, chèn history, tạo chain có input rõ.</div>
+            <div class="fact"><b>Concept</b> Template for system, human, and AI messages with named variables.</div>
+            <div class="fact"><b>Use when</b> Reuse instructions, insert history, and create chains with explicit inputs.</div>
             <div class="fact"><b>Constructor</b> <code>from_messages</code>, <code>from_template</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>format_messages</code>, <code>partial</code>, <code>append</code></div>
           </div>
-          <pre><code>from langchain_core.prompts import (
+          <pre class="language-python"><code class="language-python">from langchain_core.prompts import (
     ChatPromptTemplate,
     MessagesPlaceholder,
 )
@@ -362,8 +385,8 @@ messages = prompt.invoke({
     "question": "What is Runnable?",
 })</code></pre>
           <div class="note">
-            <p><b>Best:</b> đặt tên biến rõ, system prompt cụ thể, tách prompt khỏi business logic.</p>
-            <p class="bad"><b>Mistake:</b> dùng f-string với input user chưa kiểm soát hoặc quên truyền biến.</p>
+            <p><b>Best:</b> Use clear variable names, specific system prompts, and keep prompts separate from business logic.</p>
+            <p class="bad"><b>Mistake:</b> Use raw f-strings with unsanitized user input or forget required variables.</p>
           </div>
         </div>
       </article>
@@ -378,12 +401,12 @@ messages = prompt.invoke({
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Chuyển output model sang string, JSON hoặc object app cần.</div>
-            <div class="fact"><b>Khi dùng</b> LCEL nhỏ, model chưa có native structured output.</div>
+            <div class="fact"><b>Concept</b> Convert model output into strings, JSON, or application objects.</div>
+            <div class="fact"><b>Use when</b> Small LCEL chains or models without native structured output.</div>
             <div class="fact"><b>Constructor</b> <code>StrOutputParser()</code>, <code>JsonOutputParser()</code></div>
             <div class="fact"><b>Methods</b> <code>parse</code>, <code>invoke</code>, <code>get_format_instructions</code></div>
           </div>
-          <pre><code>from langchain_core.output_parsers import (
+          <pre class="language-python"><code class="language-python">from langchain_core.output_parsers import (
     StrOutputParser,
     JsonOutputParser,
 )
@@ -399,8 +422,8 @@ data = chain.invoke({
     "format": parser.get_format_instructions(),
 })</code></pre>
           <div class="note">
-            <p><b>Best:</b> với output quan trọng, ưu tiên schema Pydantic + structured output.</p>
-            <p class="bad"><b>Mistake:</b> regex JSON từ text tự nhiên hoặc không bắt lỗi parse.</p>
+            <p><b>Best:</b> For important outputs, prefer Pydantic schemas plus structured output.</p>
+            <p class="bad"><b>Mistake:</b> Regex JSON out of natural language or skip parse error handling.</p>
           </div>
         </div>
       </article>
@@ -415,12 +438,12 @@ data = chain.invoke({
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Runnable là interface chung cho prompt, model, parser, retriever.</div>
-            <div class="fact"><b>Khi dùng</b> Flow cố định: prompt -> model -> parser; map/merge nhiều nhánh.</div>
+            <div class="fact"><b>Concept</b> Runnable is the shared interface for prompts, models, parsers, retrievers, and custom functions.</div>
+            <div class="fact"><b>Use when</b> Fixed flows such as prompt -> model -> parser, plus map/merge branches.</div>
             <div class="fact"><b>Constructor</b> <code>RunnableLambda(fn)</code>, <code>RunnableParallel(...)</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>ainvoke</code>, <code>batch</code>, <code>stream</code>, <code>with_retry</code></div>
           </div>
-          <pre><code>from langchain_core.runnables import RunnableLambda, RunnableParallel
+          <pre class="language-python"><code class="language-python">from langchain_core.runnables import RunnableLambda, RunnableParallel
 from langchain_core.output_parsers import StrOutputParser
 
 prompt = ChatPromptTemplate.from_template(
@@ -439,8 +462,8 @@ print(parallel.invoke({"topic": "LCEL"}))
 
 reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
           <div class="note">
-            <p><b>Best:</b> dùng chain cho tác vụ deterministic, dễ test và dễ stream.</p>
-            <p class="bad"><b>Mistake:</b> dùng agent cho một pipeline đơn giản hoặc không kiểm soát kiểu input/output.</p>
+            <p><b>Best:</b> Use chains for deterministic tasks that should be easy to test and stream.</p>
+            <p class="bad"><b>Mistake:</b> Use an agent for a simple pipeline or leave input/output types uncontrolled.</p>
           </div>
         </div>
       </article>
@@ -455,16 +478,16 @@ reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Short-term memory lưu state theo conversation thread.</div>
-            <div class="fact"><b>Khi dùng</b> Chat nhiều lượt, resume agent, user context.</div>
+            <div class="fact"><b>Concept</b> Short-term memory stores state by conversation thread.</div>
+            <div class="fact"><b>Use when</b> Multi-turn chat, resumable agents, and user context.</div>
             <div class="fact"><b>Constructor</b> <code>create_agent(..., checkpointer=...)</code></div>
-            <div class="fact"><b>Parameter</b> <code>thread_id</code> trong <code>configurable</code></div>
+            <div class="fact"><b>Parameter</b> <code>thread_id</code> in <code>configurable</code></div>
           </div>
-          <pre><code>from langchain.agents import create_agent
+          <pre class="language-python"><code class="language-python">from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 
 agent = create_agent(
-    model="openai:gpt-5.5",
+    model="openai:gpt-4.1",
     tools=[],
     checkpointer=InMemorySaver(),
 )
@@ -477,8 +500,8 @@ agent.invoke({"messages": [{"role": "user",
 result = agent.invoke({"messages": [{"role": "user",
     "content": "What is my name?"}]}, config)</code></pre>
           <div class="note">
-            <p><b>Best:</b> production dùng Postgres/SQLite checkpointer và trim/summarize history.</p>
-            <p class="bad"><b>Mistake:</b> dùng InMemorySaver cho production hoặc đổi thread_id mỗi request.</p>
+            <p><b>Best:</b> Use Postgres/SQLite checkpointers in production and trim or summarize history.</p>
+            <p class="bad"><b>Mistake:</b> Use InMemorySaver in production or change thread_id on every request.</p>
           </div>
         </div>
       </article>
@@ -493,12 +516,12 @@ result = agent.invoke({"messages": [{"role": "user",
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Biến text thành vector để tìm kiếm ngữ nghĩa.</div>
-            <div class="fact"><b>Khi dùng</b> RAG, semantic search, clustering, duplicate detection.</div>
+            <div class="fact"><b>Concept</b> Convert text into vectors for semantic search.</div>
+            <div class="fact"><b>Use when</b> RAG, semantic search, clustering, duplicate detection.</div>
             <div class="fact"><b>Constructor</b> <code>OpenAIEmbeddings(model=...)</code></div>
             <div class="fact"><b>Methods</b> <code>embed_query</code>, <code>embed_documents</code></div>
           </div>
-          <pre><code>from langchain_openai import OpenAIEmbeddings
+          <pre class="language-python"><code class="language-python">from langchain_openai import OpenAIEmbeddings
 
 emb = OpenAIEmbeddings(
     model="text-embedding-3-small"
@@ -510,8 +533,8 @@ doc_vecs = emb.embed_documents([
     "Tools let agents call functions.",
 ])</code></pre>
           <div class="note">
-            <p><b>Best:</b> dùng cùng embedding model cho index và query, lưu version model.</p>
-            <p class="bad"><b>Mistake:</b> trộn vectors từ nhiều model hoặc embed raw HTML/noise.</p>
+            <p><b>Best:</b> Use the same embedding model for indexing and querying, and store the model version.</p>
+            <p class="bad"><b>Mistake:</b> Mix vectors from different embedding models or embed raw HTML/noisy text.</p>
           </div>
         </div>
       </article>
@@ -526,12 +549,12 @@ doc_vecs = emb.embed_documents([
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Lưu vector + metadata, tìm documents tương tự.</div>
-            <div class="fact"><b>Khi dùng</b> Knowledge base, semantic search, RAG corpus.</div>
+            <div class="fact"><b>Concept</b> Store vectors plus metadata and search similar documents.</div>
+            <div class="fact"><b>Use when</b> Knowledge base, semantic search, RAG corpus.</div>
             <div class="fact"><b>Constructor</b> <code>InMemoryVectorStore(embedding=emb)</code></div>
             <div class="fact"><b>Methods</b> <code>add_documents</code>, <code>similarity_search</code>, <code>as_retriever</code></div>
           </div>
-          <pre><code>from langchain_core.vectorstores import InMemoryVectorStore
+          <pre class="language-python"><code class="language-python">from langchain_core.vectorstores import InMemoryVectorStore
 
 store = InMemoryVectorStore(emb)
 store.add_documents(chunks)
@@ -545,8 +568,8 @@ retriever = store.as_retriever(
     search_kwargs={"k": 4}
 )</code></pre>
           <div class="note">
-            <p><b>Best:</b> production chọn store có persistence, filtering, backup.</p>
-            <p class="bad"><b>Mistake:</b> dùng in-memory store cho dữ liệu thật hoặc thiếu source metadata.</p>
+            <p><b>Best:</b> Choose a production store with persistence, filtering, and backups.</p>
+            <p class="bad"><b>Mistake:</b> use in-memory store for real production data or missing source metadata.</p>
           </div>
         </div>
       </article>
@@ -561,12 +584,12 @@ retriever = store.as_retriever(
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Nhận query, trả về danh sách <code>Document</code> liên quan.</div>
-            <div class="fact"><b>Khi dùng</b> 2-step RAG, agentic RAG, hybrid search.</div>
+            <div class="fact"><b>Concept</b> Accept a query and return relevant <code>Document</code> objects.</div>
+            <div class="fact"><b>Use when</b> 2-step RAG, agentic RAG, hybrid search.</div>
             <div class="fact"><b>Constructor</b> <code>vectorstore.as_retriever(...)</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>ainvoke</code>, <code>batch</code></div>
           </div>
-          <pre><code>retriever = store.as_retriever(
+          <pre class="language-python"><code class="language-python">retriever = store.as_retriever(
     search_type="similarity",
     search_kwargs={"k": 5},
 )
@@ -579,8 +602,8 @@ def format_docs(docs):
         for d in docs
     )</code></pre>
           <div class="note">
-            <p><b>Best:</b> đánh giá recall riêng, dùng metadata filters và cite source.</p>
-            <p class="bad"><b>Mistake:</b> nhồi quá nhiều docs làm context loãng hoặc không đo retrieval quality.</p>
+            <p><b>Best:</b> Evaluate recall separately, use metadata filters, and cite sources.</p>
+            <p class="bad"><b>Mistake:</b> Stuff too many documents into context or skip retrieval-quality measurement.</p>
           </div>
         </div>
       </article>
@@ -595,12 +618,12 @@ def format_docs(docs):
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Load PDF, web, CSV, folder, database thành documents.</div>
-            <div class="fact"><b>Khi dùng</b> Ingest tài liệu trước khi split/embed.</div>
+            <div class="fact"><b>Concept</b> Load PDFs, web pages, CSVs, folders, and databases into documents.</div>
+            <div class="fact"><b>Use when</b> Ingest documents before when split/embed.</div>
             <div class="fact"><b>Constructor</b> Provider/package specific loader.</div>
             <div class="fact"><b>Methods</b> <code>load</code>, <code>lazy_load</code>, <code>load_and_split</code></div>
           </div>
-          <pre><code>from langchain_community.document_loaders import (
+          <pre class="language-python"><code class="language-python">from langchain_community.document_loaders import (
     PyPDFLoader,
     WebBaseLoader,
     DirectoryLoader,
@@ -613,8 +636,8 @@ web_docs = WebBaseLoader(
 
 # Loaders return list[Document]</code></pre>
           <div class="note">
-            <p><b>Best:</b> normalize encoding, remove boilerplate, lưu source/page trong metadata.</p>
-            <p class="bad"><b>Mistake:</b> ingest HTML thô hoặc không xử lý duplicate documents.</p>
+            <p><b>Best:</b> Normalize encoding, remove boilerplate, and store source/page metadata.</p>
+            <p class="bad"><b>Mistake:</b> Ingest raw HTML or ignore duplicate documents.</p>
           </div>
         </div>
       </article>
@@ -629,12 +652,12 @@ web_docs = WebBaseLoader(
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Chia tài liệu dài thành chunks phù hợp embedding/context.</div>
-            <div class="fact"><b>Khi dùng</b> Corpus dài, PDFs, docs, markdown, code.</div>
+            <div class="fact"><b>Concept</b> Split long documents into chunks suitable for embedding and context windows.</div>
+            <div class="fact"><b>Use when</b> Long corpora, PDFs, docs, Markdown, and code.</div>
             <div class="fact"><b>Constructor</b> <code>RecursiveCharacterTextSplitter(...)</code></div>
             <div class="fact"><b>Methods</b> <code>split_text</code>, <code>split_documents</code>, <code>create_documents</code></div>
           </div>
-          <pre><code>from langchain_text_splitters import RecursiveCharacterTextSplitter
+          <pre class="language-python"><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size=800,
@@ -644,8 +667,8 @@ splitter = RecursiveCharacterTextSplitter(
 
 chunks = splitter.split_documents(pdf_docs)</code></pre>
           <div class="note">
-            <p><b>Best:</b> tune chunk size bằng query thật, giữ overlap vừa đủ.</p>
-            <p class="bad"><b>Mistake:</b> chunk quá nhỏ mất context, quá lớn giảm recall.</p>
+            <p><b>Best:</b> Tune chunk size with real queries and keep overlap only as large as needed.</p>
+            <p class="bad"><b>Mistake:</b> Chunks that are too small lose context; chunks that are too large reduce recall.</p>
           </div>
         </div>
       </article>
@@ -660,12 +683,12 @@ chunks = splitter.split_documents(pdf_docs)</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Container cho text và metadata trong RAG.</div>
-            <div class="fact"><b>Khi dùng</b> Loaders, splitters, vector stores, retrievers.</div>
+            <div class="fact"><b>Concept</b> Container for text and metadata in RAG pipelines.</div>
+            <div class="fact"><b>Use when</b> Loaders, splitters, vector stores, retrievers.</div>
             <div class="fact"><b>Constructor</b> <code>Document(page_content, metadata, id)</code></div>
             <div class="fact"><b>Fields</b> <code>page_content</code>, <code>metadata</code>, <code>id</code></div>
           </div>
-          <pre><code>from langchain_core.documents import Document
+          <pre class="language-python"><code class="language-python">from langchain_core.documents import Document
 
 doc = Document(
     page_content="LangChain agents call tools.",
@@ -678,8 +701,8 @@ doc = Document(
 print(doc.page_content)
 print(doc.metadata["source"])</code></pre>
           <div class="note">
-            <p><b>Best:</b> metadata cần source, page/section, timestamp để cite và debug.</p>
-            <p class="bad"><b>Mistake:</b> dùng Document như chat message hoặc bỏ metadata nguồn.</p>
+            <p><b>Best:</b> Metadata should include source, page/section, and timestamp for citations and debugging.</p>
+            <p class="bad"><b>Mistake:</b> Use Document objects as chat messages or omit source metadata.</p>
           </div>
         </div>
       </article>
@@ -694,12 +717,12 @@ print(doc.metadata["source"])</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Agent = model + tools + prompt + middleware chạy trên LangGraph.</div>
-            <div class="fact"><b>Khi dùng</b> Model cần tự quyết định gọi tool/API/database nhiều bước.</div>
+            <div class="fact"><b>Concept</b> Agent = model + tools + prompt + middleware, executed on LangGraph.</div>
+            <div class="fact"><b>Use when</b> The model must decide which tools, APIs, or databases to call across multiple steps.</div>
             <div class="fact"><b>Constructor</b> <code>create_agent(model, tools, system_prompt, response_format)</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>stream</code>, <code>stream_events</code></div>
           </div>
-          <pre><code>from pydantic import BaseModel, Field
+          <pre class="language-python"><code class="language-python">from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.tools import tool
 
@@ -712,7 +735,7 @@ def search_docs(query: str) -> str:
     return "Relevant snippet about LangChain agents."
 
 agent = create_agent(
-    model="openai:gpt-5.5",
+    model="openai:gpt-4.1",
     tools=[search_docs],
     system_prompt="Answer briefly. Use tools when needed.",
 )
@@ -723,8 +746,8 @@ result = agent.invoke({
 })
 print(result["messages"][-1].content)</code></pre>
           <div class="note">
-            <p><b>Best:</b> tool names snake_case, schema chặt, docstring nói rõ khi nào dùng.</p>
-            <p class="bad"><b>Mistake:</b> quá nhiều tool trùng chức năng hoặc tool side effect không approval.</p>
+            <p><b>Best:</b> Use snake_case tool names, strict schemas, and docstrings that say when to use each tool.</p>
+            <p class="bad"><b>Mistake:</b> Expose too many overlapping tools or allow side-effect tools without approval.</p>
           </div>
         </div>
       </article>
@@ -739,12 +762,12 @@ print(result["messages"][-1].content)</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Role-based context cho chat models và agents.</div>
-            <div class="fact"><b>Khi dùng</b> Chat history, system policy, tool calling, multimodal blocks.</div>
+            <div class="fact"><b>Concept</b> Role-based context for chat models and agents.</div>
+            <div class="fact"><b>Use when</b> Chat history, system policy, tool calling, multimodal blocks.</div>
             <div class="fact"><b>Classes</b> <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code></div>
             <div class="fact"><b>Parameter</b> <code>content</code>, metadata, ids, tool calls.</div>
           </div>
-          <pre><code>from langchain.messages import (
+          <pre class="language-python"><code class="language-python">from langchain.messages import (
     SystemMessage,
     HumanMessage,
 )
@@ -757,8 +780,8 @@ messages = [
 response = model.invoke(messages)
 print(response.content)</code></pre>
           <div class="note">
-            <p><b>Best:</b> dùng messages cho multi-turn thay vì nối chuỗi prompt thủ công.</p>
-            <p class="bad"><b>Mistake:</b> nhồi toàn bộ history vô hạn vào context window.</p>
+            <p><b>Best:</b> Use messages for multi-turn chat instead of manually concatenating prompt strings.</p>
+            <p class="bad"><b>Mistake:</b> Stuff the entire conversation history into the context window forever.</p>
           </div>
         </div>
       </article>
@@ -773,12 +796,12 @@ print(response.content)</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Retrieve context ở query time rồi đưa cho model trả lời.</div>
-            <div class="fact"><b>Khi dùng</b> Hỏi đáp trên docs riêng, dữ liệu thay đổi, cần trích nguồn.</div>
+            <div class="fact"><b>Concept</b> Retrieve context at query time and pass it to the model for grounded answers.</div>
+            <div class="fact"><b>Use when</b> Q&A over private docs, changing data, and answers that need citations.</div>
             <div class="fact"><b>Pattern</b> Load -> split -> embed -> store -> retrieve -> answer.</div>
             <div class="fact"><b>Methods</b> <code>load</code>, <code>split_documents</code>, <code>as_retriever</code>, <code>invoke</code></div>
           </div>
-          <pre><code>from langchain_core.prompts import ChatPromptTemplate
+          <pre class="language-python"><code class="language-python">from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 docs = PyPDFLoader("handbook.pdf").load()
@@ -811,8 +834,8 @@ answer = (prompt | model | StrOutputParser()).invoke({
     "question": question,
 })</code></pre>
           <div class="note">
-            <p><b>Best:</b> cite source, evaluate retrieval riêng, thêm reranker khi corpus lớn.</p>
-            <p class="bad"><b>Mistake:</b> để model trả lời ngoài context hoặc không lọc metadata theo quyền user.</p>
+            <p><b>Best:</b> Cite sources, evaluate retrieval separately, and add a reranker when the corpus is large.</p>
+            <p class="bad"><b>Mistake:</b> Let the model answer outside context or skip metadata filtering by user permissions.</p>
           </div>
         </div>
       </article>
@@ -827,12 +850,12 @@ answer = (prompt | model | StrOutputParser()).invoke({
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Trace model calls, tools, state, latency, output quality.</div>
-            <div class="fact"><b>Khi dùng</b> Debug agents, evaluate prompts/RAG, production monitoring.</div>
-            <div class="fact"><b>Setup</b> Env vars hoặc callback handlers.</div>
+            <div class="fact"><b>Concept</b> Trace model calls, tools, state, latency, output quality.</div>
+            <div class="fact"><b>Use when</b> Debug agents, evaluate prompts/RAG, production monitoring.</div>
+            <div class="fact"><b>Setup</b> Environment variables or callback handlers.</div>
             <div class="fact"><b>Scope</b> Chains, agents, retrievers, tools, model calls.</div>
           </div>
-          <pre><code>import os
+          <pre class="language-python"><code class="language-python">import os
 
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_API_KEY"] = "lsv2_..."
@@ -842,8 +865,8 @@ os.environ["LANGSMITH_PROJECT"] = "my-project"
 from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.tracers import LangChainTracer</code></pre>
           <div class="note">
-            <p><b>Best:</b> trace dev/staging, thêm tags/metadata theo flow.</p>
-            <p class="bad"><b>Mistake:</b> debug agent chỉ bằng print hoặc trace PII chưa scrub.</p>
+            <p><b>Best:</b> Trace dev/staging runs and add tags/metadata by flow.</p>
+            <p class="bad"><b>Mistake:</b> Debug agents only with print statements or trace unsanitized PII.</p>
           </div>
         </div>
       </article>
@@ -858,12 +881,12 @@ from langchain.callbacks.tracers import LangChainTracer</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Graph runtime cho stateful agents, checkpoints, control flow.</div>
-            <div class="fact"><b>Khi dùng</b> Workflow nhiều bước, human-in-the-loop, durable execution.</div>
+            <div class="fact"><b>Concept</b> Graph runtime for stateful agents, checkpoints, control flow.</div>
+            <div class="fact"><b>Use when</b> Multi-step workflows, human-in-the-loop, and durable execution.</div>
             <div class="fact"><b>Constructor</b> <code>StateGraph(State)</code></div>
             <div class="fact"><b>Methods</b> <code>add_node</code>, <code>add_edge</code>, <code>compile</code></div>
           </div>
-          <pre><code>from typing import TypedDict
+          <pre class="language-python"><code class="language-python">from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 
 class State(TypedDict):
@@ -880,8 +903,8 @@ graph.add_edge(START, "model")
 graph.add_edge("model", END)
 app = graph.compile()</code></pre>
           <div class="note">
-            <p><b>Best:</b> dùng LangChain agent trước; chuyển graph khi cần control flow rõ.</p>
-            <p class="bad"><b>Mistake:</b> tự build graph phức tạp khi <code>create_agent</code> đã đủ.</p>
+            <p><b>Best:</b> Start with a LangChain agent; move to a graph when you need explicit control flow.</p>
+            <p class="bad"><b>Mistake:</b> Build a custom graph when <code>create_agent</code> is already enough.</p>
           </div>
         </div>
       </article>
@@ -896,12 +919,12 @@ app = graph.compile()</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> LangChain core + provider integrations + community loaders.</div>
-            <div class="fact"><b>Khi dùng</b> Bắt đầu project hoặc chuẩn hóa dependency.</div>
+            <div class="fact"><b>Concept</b> LangChain core + provider integrations + community loaders.</div>
+            <div class="fact"><b>Use when</b> Start a project or standardize dependencies.</div>
             <div class="fact"><b>Packages</b> <code>langchain</code>, <code>langchain-openai</code>, <code>langchain-community</code></div>
-            <div class="fact"><b>Security</b> API keys qua environment, không commit secrets.</div>
+            <div class="fact"><b>Security</b> Keep API keys in environment variables; do not commit secrets.</div>
           </div>
-          <pre><code>pip install -U langchain langchain-openai
+          <pre class="language-python"><code class="language-python">pip install -U langchain langchain-openai
 pip install -U langchain-community langchain-text-splitters
 pip install -U pypdf beautifulsoup4
 
@@ -912,8 +935,8 @@ LANGSMITH_API_KEY="lsv2_..."
 
 python -c "import langchain; print(langchain.__version__)"</code></pre>
           <div class="note">
-            <p><b>Best:</b> pin versions trong production và tách env dev/staging/prod.</p>
-            <p class="bad"><b>Mistake:</b> cài quá nhiều provider hoặc commit file chứa secrets.</p>
+            <p><b>Best:</b> Pin versions in production and separate dev/staging/prod environments.</p>
+            <p class="bad"><b>Mistake:</b> Install too many provider packages or commit files containing secrets.</p>
           </div>
         </div>
       </article>
@@ -928,12 +951,12 @@ python -c "import langchain; print(langchain.__version__)"</code></pre>
         </div>
         <div class="body">
           <div class="mini">
-            <div class="fact"><b>Khái niệm</b> Đưa ví dụ input/output để model học format và style.</div>
-            <div class="fact"><b>Khi dùng</b> Classification, extraction, rewrite style, formatting khó.</div>
+            <div class="fact"><b>Concept</b> Provide input/output examples so the model learns format and style.</div>
+            <div class="fact"><b>Use when</b> Classification, extraction, style rewriting, and hard formatting tasks.</div>
             <div class="fact"><b>Constructor</b> <code>FewShotPromptTemplate(...)</code></div>
             <div class="fact"><b>Parameters</b> <code>examples</code>, <code>example_prompt</code>, <code>suffix</code></div>
           </div>
-          <pre><code>from langchain_core.prompts import (
+          <pre class="language-python"><code class="language-python">from langchain_core.prompts import (
     FewShotPromptTemplate,
     PromptTemplate,
 )
@@ -954,9 +977,98 @@ prompt = FewShotPromptTemplate(
     input_variables=["text"],
 )</code></pre>
           <div class="note">
-            <p><b>Best:</b> ví dụ ngắn, nhất quán, bao phủ edge cases quan trọng.</p>
-            <p class="bad"><b>Mistake:</b> đưa ví dụ mâu thuẫn hoặc quá dài làm tốn context.</p>
+            <p><b>Best:</b> Keep examples short, consistent, and focused on important edge cases.</p>
+            <p class="bad"><b>Mistake:</b> Provide conflicting examples or examples so long they waste context.</p>
           </div>
+        </div>
+      </article>
+
+      <article id="advanced-api" class="card span-3">
+        <div class="card-head">
+          <div class="icon blue">API</div>
+          <div class="title">
+            <h2>Advanced API Surface</h2>
+            <div class="caption">High-value classes, functions, and methods to know beyond the basics</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>Runnable</code><br><code>invoke</code>, <code>ainvoke</code>, <code>batch</code>, <code>abatch</code>, <code>stream</code>, <code>astream</code>, <code>astream_events</code>, <code>with_retry</code>, <code>with_config</code>.</li>
+            <li><code>RunnableLambda</code><br>Wrap a Python function as a chain step; use for transforms, validators, and custom routing glue.</li>
+            <li><code>RunnableParallel</code><br>Run branches in parallel and merge named outputs for multi-input prompts or ensemble retrieval.</li>
+            <li><code>RunnablePassthrough.assign</code><br>Keep the original input and add derived fields such as retrieved context or computed metadata.</li>
+            <li><code>ChatPromptTemplate</code><br><code>from_messages</code>, <code>MessagesPlaceholder</code>, <code>partial</code>, <code>format_messages</code>, prompt composition.</li>
+            <li><code>BaseChatModel</code><br><code>bind_tools</code>, <code>with_structured_output</code>, <code>stream</code>, usage metadata, provider-specific model kwargs.</li>
+            <li><code>Document</code><br><code>page_content</code>, <code>metadata</code>, <code>id</code>; keep source, page, tenant, and version metadata.</li>
+            <li><code>VectorStore</code><br><code>add_documents</code>, <code>delete</code>, <code>similarity_search</code>, <code>similarity_search_with_score</code>, <code>as_retriever</code>.</li>
+            <li><code>Retriever</code><br><code>invoke</code>, <code>batch</code>, search types such as similarity, MMR, similarity score threshold, and provider filters.</li>
+            <li><code>create_agent</code><br>Build tool-calling agents with <code>model</code>, <code>tools</code>, <code>system_prompt</code>, <code>response_format</code>, <code>middleware</code>, and <code>checkpointer</code>.</li>
+            <li><code>@tool</code><br>Expose Python functions with type hints, docstrings, argument schemas, and controlled side effects.</li>
+            <li><code>LangSmith</code><br>Trace runs, compare prompts, build datasets, run evaluations, and inspect agent/tool failures.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article id="advanced-patterns" class="card span-2">
+        <div class="card-head">
+          <div class="icon gold">ADV</div>
+          <div class="title">
+            <h2>Advanced Patterns</h2>
+            <div class="caption">Structured output, middleware, routing, retries, streaming</div>
+          </div>
+        </div>
+        <div class="body">
+          <pre class="language-python"><code class="language-python">from pydantic import BaseModel, Field
+from langchain.agents import create_agent
+from langchain.tools import tool
+
+class TicketTriage(BaseModel):
+    priority: str = Field(description="low, medium, high, urgent")
+    route_to: str = Field(description="team queue")
+    rationale: str
+
+@tool
+def lookup_customer(customer_id: str) -> str:
+    """Use for customer plan, SLA, and account status lookup."""
+    return "enterprise plan, 24/7 SLA"
+
+agent = create_agent(
+    model="openai:gpt-4.1",
+    tools=[lookup_customer],
+    system_prompt=(
+        "Triage support tickets. Use tools before assigning SLA. "
+        "Return structured output only."
+    ),
+    response_format=TicketTriage,
+)
+
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Customer c_123 has outage"}]
+})</code></pre>
+          <div class="note">
+            <p><b>Use agents for:</b> tool selection, multi-step decisions, missing information, and external actions.</p>
+            <p class="bad"><b>Keep chains for:</b> deterministic transforms, extraction, fixed RAG, formatting, and simple classification.</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="advanced-rag" class="card">
+        <div class="card-head">
+          <div class="icon red">RAG</div>
+          <div class="title">
+            <h2>Advanced RAG</h2>
+            <div class="caption">Query rewrite, MMR, rerank, compression, citations</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>MultiQueryRetriever</code><br>Generate query variants to increase recall when users ask vague questions.</li>
+            <li><code>ContextualCompressionRetriever</code><br>Compress retrieved documents before generation to reduce noise and token cost.</li>
+            <li><code>EnsembleRetriever</code><br>Blend dense vector retrieval with BM25/keyword retrieval for exact terms plus semantics.</li>
+            <li><code>search_type="mmr"</code><br>Maximal marginal relevance improves diversity in retrieved chunks.</li>
+            <li><code>metadata filters</code><br>Filter by tenant, permission, product, date, source type, or document version before answering.</li>
+            <li><code>citation contract</code><br>Return source ids/pages from <code>Document.metadata</code>; never cite generated text.</li>
+          </ul>
         </div>
       </article>
 
@@ -970,11 +1082,11 @@ prompt = FewShotPromptTemplate(
         </div>
         <div class="body">
           <ul class="mono-list">
-            <li><code>Runnable chain</code><br>Prompt -> model -> parser cố định, dễ test.</li>
-            <li><code>create_agent</code><br>Model cần tự chọn tool hoặc làm nhiều bước.</li>
-            <li><code>response_format</code><br>App cần JSON/schema đáng tin cậy.</li>
-            <li><code>Retriever</code><br>Cần lấy docs liên quan tại query time.</li>
-            <li><code>Memory/checkpointer</code><br>Chat nhiều lượt và cần resume theo thread.</li>
+            <li><code>Runnable chain</code><br>Fixed prompt -> model -> parser flow, easy to test.</li>
+            <li><code>create_agent</code><br>Model must choose tools or perform multiple steps.</li>
+            <li><code>response_format</code><br>Application needs reliable JSON/schema output.</li>
+            <li><code>Retriever</code><br>Needs relevant documents at query time.</li>
+            <li><code>Memory/checkpointer</code><br>Multi-turn chat that must resume by thread.</li>
             <li><code>Middleware</code><br>Retries, PII filtering, human approval, guardrails.</li>
           </ul>
         </div>
@@ -984,7 +1096,7 @@ prompt = FewShotPromptTemplate(
     <footer class="footer">
       <div>
         LangChain Cheatsheet - Core Components Reference.
-        Tài liệu nguồn được đối chiếu từ docs chính thức ngày 2026-06-30.
+        Source material was checked against official docs on 2026-06-30.
       </div>
       <span>
         <a href="https://docs.langchain.com/oss/python/langchain/overview">langchain docs</a>
@@ -993,5 +1105,9 @@ prompt = FewShotPromptTemplate(
       </span>
     </footer>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>
