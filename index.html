@@ -992,6 +992,33 @@ prompt = FewShotPromptTemplate(
           </div>
         </div>
         <div class="body">
+          <pre class="language-python"><code class="language-python">from langchain_core.runnables import (
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+)
+from langchain_core.output_parsers import StrOutputParser
+
+def normalize_question(data: dict) -> str:
+    return data["question"].strip()
+
+chain = (
+    RunnablePassthrough.assign(
+        normalized_question=RunnableLambda(normalize_question),
+        context=lambda x: retriever.invoke(x["question"]),
+    )
+    | prompt
+    | model.with_retry(stop_after_attempt=3)
+    | StrOutputParser()
+).with_config(
+    tags=["support", "rag"],
+    metadata={"prompt_version": "qa_v4"},
+)
+
+parallel = RunnableParallel(
+    answer=chain,
+    retrieved_docs=lambda x: retriever.invoke(x["question"]),
+)</code></pre>
           <ul class="mono-list">
             <li><code>Runnable</code><br><code>invoke</code>, <code>ainvoke</code>, <code>batch</code>, <code>abatch</code>, <code>stream</code>, <code>astream</code>, <code>astream_events</code>, <code>with_retry</code>, <code>with_config</code>.</li>
             <li><code>RunnableLambda</code><br>Wrap a Python function as a chain step; use for transforms, validators, and custom routing glue.</li>
@@ -1061,6 +1088,39 @@ result = agent.invoke({
           </div>
         </div>
         <div class="body">
+          <pre class="language-python"><code class="language-python">from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+def format_docs(docs):
+    return "\n\n".join(
+        f"[{doc.metadata.get('source')}#{doc.metadata.get('page')}]\n"
+        f"{doc.page_content}"
+        for doc in docs
+    )
+
+retriever = vectorstore.as_retriever(
+    search_type="mmr",
+    search_kwargs={
+        "k": 6,
+        "fetch_k": 40,
+        "lambda_mult": 0.35,
+        "filter": {"tenant_id": tenant_id, "doc_status": "approved"},
+    },
+)
+
+rag_chain = (
+    RunnablePassthrough.assign(
+        context=lambda x: format_docs(retriever.invoke(x["question"]))
+    )
+    | rag_prompt
+    | model
+    | StrOutputParser()
+)
+
+answer = rag_chain.invoke({
+    "question": "What is the refund SLA?",
+    "tenant_id": "acme",
+})</code></pre>
           <ul class="mono-list">
             <li><code>MultiQueryRetriever</code><br>Generate query variants to increase recall when users ask vague questions.</li>
             <li><code>ContextualCompressionRetriever</code><br>Compress retrieved documents before generation to reduce noise and token cost.</li>
@@ -1114,6 +1174,38 @@ model_policy = {"primary": "openai:gpt-4.1", "fallback": "openai:gpt-4.1-mini"}<
           </div>
         </div>
         <div class="body">
+          <pre class="language-python"><code class="language-python">from langchain.agents import create_agent
+from langchain.agents.middleware import (
+    HumanInTheLoopMiddleware,
+    SummarizationMiddleware,
+)
+
+agent = create_agent(
+    model="openai:gpt-4.1",
+    tools=[read_docs, send_email, create_ticket],
+    system_prompt=(
+        "You are a support engineer. Use tools for facts. "
+        "Never perform external actions without approval."
+    ),
+    middleware=[
+        SummarizationMiddleware(
+            model="openai:gpt-4.1-mini",
+            max_tokens_before_summary=4000,
+            messages_to_keep=8,
+        ),
+        HumanInTheLoopMiddleware(
+            interrupt_on={
+                "send_email": True,
+                "create_ticket": {"allowed_decisions": ["approve", "reject"]},
+            }
+        ),
+    ],
+)
+
+config = {
+    "configurable": {"thread_id": "customer-123"},
+    "metadata": {"tenant_id": "acme", "risk": "external_action"},
+}</code></pre>
           <ul class="mono-list">
             <li><code>Dynamic system prompt</code><br>Build system instructions from user role, product, locale, task type, and risk level.</li>
             <li><code>PII policy</code><br>Scrub or redact sensitive fields before tracing; never log raw secrets, tokens, or full customer records.</li>
@@ -1134,6 +1226,31 @@ model_policy = {"primary": "openai:gpt-4.1", "fallback": "openai:gpt-4.1-mini"}<
           </div>
         </div>
         <div class="body">
+          <pre class="language-python"><code class="language-python"># Minimal eval harness shape for a LangChain RAG/agent workflow.
+dataset = [
+    {
+        "question": "What is the refund SLA?",
+        "expected_contains": ["30 days", "refund policy"],
+        "must_cite": True,
+    },
+    {
+        "question": "Delete customer account 42",
+        "expected_behavior": "requires_human_approval",
+    },
+]
+
+for case in dataset:
+    result = app.invoke(
+        {"messages": [{"role": "user", "content": case["question"]}]},
+        config={"metadata": {"eval_case": case["question"]}},
+    )
+    trace = {
+        "answer": result,
+        "prompt_version": "support_v4",
+        "index_version": "kb_2026_06_30",
+        "model": "openai:gpt-4.1",
+    }
+    # Assert citations, refusal behavior, schema validity, and latency budget.</code></pre>
           <ul class="mono-list">
             <li><code>Golden set</code><br>Real user questions, expected outputs, must-not-answer cases, empty-retrieval cases.</li>
             <li><code>Regression</code><br>Run evals on every prompt, retriever, model, chunking, or tool schema change.</li>
