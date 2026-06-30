@@ -468,7 +468,7 @@ reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
         </div>
       </article>
 
-      <article id="memory" class="card">
+      <article id="memory" class="card span-2">
         <div class="card-head">
           <div class="icon red">ME</div>
           <div class="title">
@@ -483,7 +483,8 @@ reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
             <div class="fact"><b>Constructor</b> <code>create_agent(..., checkpointer=...)</code></div>
             <div class="fact"><b>Parameter</b> <code>thread_id</code> in <code>configurable</code></div>
           </div>
-          <pre class="language-python"><code class="language-python">from langchain.agents import create_agent
+          <pre class="language-python"><code class="language-python"># Demo only: InMemorySaver is reset when the process restarts.
+from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 
 agent = create_agent(
@@ -499,9 +500,69 @@ agent.invoke({"messages": [{"role": "user",
 
 result = agent.invoke({"messages": [{"role": "user",
     "content": "What is my name?"}]}, config)</code></pre>
+          <pre class="language-python"><code class="language-python"># Production: persist short-term memory in Postgres.
+# pip install langgraph-checkpoint-postgres
+from langchain.agents import create_agent
+from langgraph.checkpoint.postgres import PostgresSaver
+
+DB_URI = "postgresql://postgres:postgres@localhost:5432/ai?sslmode=disable"
+
+with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    checkpointer.setup()  # create checkpoint tables/indexes once
+
+    agent = create_agent(
+        model="openai:gpt-4.1",
+        tools=[lookup_customer, create_ticket],
+        checkpointer=checkpointer,
+    )
+
+    config = {"configurable": {"thread_id": "tenant-acme:user-42"}}
+    response = agent.invoke(
+        {"messages": [{"role": "user", "content": "Open a billing ticket"}]},
+        config=config,
+    )</code></pre>
+          <pre class="language-python"><code class="language-python"># Local durable workflow: SQLite checkpointer.
+# pip install langgraph-checkpoint-sqlite
+import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
+
+conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
+checkpointer = SqliteSaver(conn)
+
+agent = create_agent(
+    model="openai:gpt-4.1-mini",
+    tools=[search_docs],
+    checkpointer=checkpointer,
+)
+
+# Use deterministic thread IDs from your app, not random IDs per request.
+config = {"configurable": {"thread_id": "course-ai-engineer:lesson-3"}}
+agent.invoke({"messages": [{"role": "user", "content": "Continue"}]}, config)</code></pre>
+          <pre class="language-python"><code class="language-python"># Async web route pattern.
+async def chat(user_id: str, text: str) -> str:
+    config = {"configurable": {"thread_id": f"user:{user_id}"}}
+    result = await agent.ainvoke(
+        {"messages": [{"role": "user", "content": text}]},
+        config=config,
+    )
+    return result["messages"][-1].content
+
+async def stream_ui(user_id: str, text: str):
+    config = {"configurable": {"thread_id": f"user:{user_id}"}}
+    async for event in agent.astream_events(
+        {"messages": [{"role": "user", "content": text}]},
+        config=config,
+        version="v2",
+    ):
+        if event["event"] == "on_chat_model_stream":
+            chunk = event["data"]["chunk"]
+            if chunk.content:
+                yield {"type": "token", "value": chunk.content}
+        elif event["event"] == "on_tool_start":
+            yield {"type": "tool_start", "name": event["name"]}</code></pre>
           <div class="note">
-            <p><b>Best:</b> Use Postgres/SQLite checkpointers in production and trim or summarize history.</p>
-            <p class="bad"><b>Mistake:</b> Use InMemorySaver in production or change thread_id on every request.</p>
+            <p><b>Best:</b> Use stable thread IDs, Postgres for production, SQLite for local durable workflows, and summarization/trim middleware for long conversations.</p>
+            <p class="bad"><b>Mistake:</b> Use InMemorySaver in production, skip <code>checkpointer.setup()</code>, or generate a new <code>thread_id</code> for every request.</p>
           </div>
         </div>
       </article>
@@ -1179,39 +1240,92 @@ from langchain.agents.middleware import (
     HumanInTheLoopMiddleware,
     SummarizationMiddleware,
 )
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.types import Command
 
-agent = create_agent(
-    model="openai:gpt-4.1",
-    tools=[read_docs, send_email, create_ticket],
-    system_prompt=(
-        "You are a support engineer. Use tools for facts. "
-        "Never perform external actions without approval."
-    ),
-    middleware=[
-        SummarizationMiddleware(
-            model="openai:gpt-4.1-mini",
-            max_tokens_before_summary=4000,
-            messages_to_keep=8,
+with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    checkpointer.setup()
+
+    agent = create_agent(
+        model="openai:gpt-4.1",
+        tools=[read_docs, send_email, create_ticket],
+        system_prompt=(
+            "You are a support engineer. Use tools for facts. "
+            "Never perform external actions without approval."
         ),
-        HumanInTheLoopMiddleware(
-            interrupt_on={
-                "send_email": True,
-                "create_ticket": {"allowed_decisions": ["approve", "reject"]},
-            }
-        ),
-    ],
-)
+        checkpointer=checkpointer,
+        middleware=[
+            SummarizationMiddleware(
+                model="openai:gpt-4.1-mini",
+                max_tokens_before_summary=4000,
+                messages_to_keep=8,
+            ),
+            HumanInTheLoopMiddleware(
+                interrupt_on={
+                    "send_email": {
+                        "allowed_decisions": ["approve", "edit", "reject"]
+                    },
+                    "create_ticket": {
+                        "allowed_decisions": ["approve", "reject"]
+                    },
+                }
+            ),
+        ],
+    )
 
 config = {
     "configurable": {"thread_id": "customer-123"},
     "metadata": {"tenant_id": "acme", "risk": "external_action"},
-}</code></pre>
+}
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "Email the refund plan"}]},
+    config=config,
+)
+
+# If the middleware interrupts, show result["__interrupt__"] in your UI.
+# Decisions must match the interrupt action order.
+approved = agent.invoke(
+    Command(resume={"decisions": [{"type": "approve"}]}),
+    config=config,
+)
+
+edited = agent.invoke(
+    Command(resume={
+        "decisions": [{
+            "type": "edit",
+            "args": {"recipient": "billing@example.com", "subject": "Refund plan"},
+        }]
+    }),
+    config=config,
+)</code></pre>
+          <pre class="language-python"><code class="language-python"># Async HITL resume in an API handler.
+async def resume_after_review(thread_id: str, approved: bool):
+    decision = {"type": "approve"} if approved else {
+        "type": "reject",
+        "reason": "Human reviewer rejected this action.",
+    }
+    return await agent.ainvoke(
+        Command(resume={"decisions": [decision]}),
+        config={"configurable": {"thread_id": thread_id}},
+    )
+
+async def stream_reviewable_run(thread_id: str, user_text: str):
+    async for event in agent.astream_events(
+        {"messages": [{"role": "user", "content": user_text}]},
+        config={"configurable": {"thread_id": thread_id}},
+        version="v2",
+    ):
+        if event["event"] == "on_chain_stream":
+            chunk = event["data"].get("chunk") or {}
+            if "__interrupt__" in chunk:
+                yield {"type": "approval_required", "payload": chunk["__interrupt__"]}</code></pre>
           <ul class="mono-list">
             <li><code>Dynamic system prompt</code><br>Build system instructions from user role, product, locale, task type, and risk level.</li>
             <li><code>PII policy</code><br>Scrub or redact sensitive fields before tracing; never log raw secrets, tokens, or full customer records.</li>
             <li><code>Tool policy</code><br>Block risky tools until confirmation; add allowlists by tenant/user role.</li>
             <li><code>Retry policy</code><br>Retry transient provider/tool errors, not deterministic schema or permission errors.</li>
-            <li><code>Human-in-loop</code><br>Use approval gates for financial, legal, medical, account, delete, or external communication actions.</li>
+            <li><code>Human-in-loop</code><br>Use <code>approve</code>, <code>edit</code>, <code>reject</code>, or <code>respond</code>; persist the thread so the same run can resume later.</li>
             <li><code>Context budget</code><br>Summarize history, trim documents, and prefer compact context over dumping everything into the model.</li>
           </ul>
         </div>
