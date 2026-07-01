@@ -316,13 +316,13 @@
           <div class="mini">
             <div class="fact"><b>Concept</b> Standard wrapper for model providers; chat output is usually an <code>AIMessage</code>.</div>
             <div class="fact"><b>Use when</b> Direct model calls, chains, agents, classification, and extraction.</div>
-            <div class="fact"><b>Constructor</b> <code>init_chat_model(model, temperature, max_tokens, timeout)</code></div>
+            <div class="fact"><b>Constructor</b> <code>ChatOpenAI(model, temperature, max_tokens, timeout)</code></div>
             <div class="fact"><b>Methods</b> <code>invoke</code>, <code>stream</code>, <code>batch</code>, <code>with_structured_output</code></div>
           </div>
-          <pre class="language-python"><code class="language-python">from langchain.chat_models import init_chat_model
+          <pre class="language-python"><code class="language-python">from langchain_openai import ChatOpenAI
 
-model = init_chat_model(
-    "openai:gpt-4o",
+model = ChatOpenAI(
+    model="gpt-4.1-mini",
     temperature=0.2,
     max_tokens=800,
     timeout=30,
@@ -752,7 +752,7 @@ print(doc.metadata["source"])</code></pre>
           </div>
           <pre class="language-python"><code class="language-python">from pydantic import BaseModel, Field
 from langchain.agents import create_agent
-from langchain.tools import tool
+from langchain_core.tools import tool
 
 class SearchInput(BaseModel):
     query: str = Field(description="Search query")
@@ -796,7 +796,7 @@ async def run_agent():
             <div class="fact"><b>Classes</b> <code>SystemMessage</code>, <code>HumanMessage</code>, <code>AIMessage</code></div>
             <div class="fact"><b>Parameter</b> <code>content</code>, metadata, ids, tool calls.</div>
           </div>
-          <pre class="language-python"><code class="language-python">from langchain.messages import (
+          <pre class="language-python"><code class="language-python">from langchain_core.messages import (
     SystemMessage,
     HumanMessage,
 )
@@ -950,6 +950,79 @@ chain = prompt | model_with_fallback | StrOutputParser()</code></pre>
         </div>
       </article>
 
+      <article class="card span-2">
+        <div class="card-head">
+          <div class="icon blue">MID</div>
+          <div class="title">
+            <h2>Agent Middleware &amp; Runtime Context</h2>
+            <div class="caption">Inject tenant/user context and route model calls centrally</div>
+          </div>
+        </div>
+        <div class="body">
+          <pre class="language-python"><code class="language-python">from dataclasses import dataclass
+from langchain.agents import create_agent
+from langchain.agents.middleware import ModelRequest, ModelResponse, wrap_model_call
+from langchain_openai import ChatOpenAI
+
+basic_model = ChatOpenAI(model="gpt-4.1-mini")
+premium_model = ChatOpenAI(model="gpt-4.1")
+
+@dataclass
+class RequestContext:
+    tenant_id: str
+    user_tier: str
+
+@wrap_model_call
+def route_model(request: ModelRequest, handler) -> ModelResponse:
+    ctx = request.runtime.context
+    request.model = premium_model if ctx.user_tier == "premium" else basic_model
+    return handler(request)
+
+agent = create_agent(
+    model=basic_model,
+    tools=tools,
+    context_schema=RequestContext,
+    middleware=[route_model],
+)
+
+result = await agent.ainvoke(
+    {"messages": [{"role": "user", "content": "Analyze this incident."}]},
+    context=RequestContext(tenant_id="acme", user_tier="premium"),
+)</code></pre>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="icon green">OUT</div>
+          <div class="title">
+            <h2>Structured Agent Output</h2>
+            <div class="caption">Use response_format for typed final answers</div>
+          </div>
+        </div>
+        <div class="body">
+          <pre class="language-python"><code class="language-python">from pydantic import BaseModel, Field
+from langchain.agents import create_agent
+
+class Triage(BaseModel):
+    severity: str = Field(description="low, medium, high, or critical")
+    owner: str
+    next_action: str
+
+agent = create_agent(
+    model="openai:gpt-4.1",
+    tools=[search_docs],
+    response_format=Triage,
+    system_prompt="Triage support incidents with grounded next actions.",
+)
+
+result = await agent.ainvoke({
+    "messages": [{"role": "user", "content": "Payment API is failing for tenant A."}]
+})
+triage: Triage = result["structured_response"]</code></pre>
+        </div>
+      </article>
+
       <article class="card">
         <div class="card-head">
           <div class="icon gold">CAC</div>
@@ -1061,7 +1134,7 @@ parallel = RunnableParallel(
         <div class="body">
           <pre class="language-python"><code class="language-python">from pydantic import BaseModel, Field
 from langchain.agents import create_agent
-from langchain.tools import tool
+from langchain_core.tools import tool
 
 class TicketTriage(BaseModel):
     priority: str = Field(description="low, medium, high, urgent")
@@ -1104,10 +1177,10 @@ async def triage_ticket():
           </div>
         </div>
         <div class="body">
-          <pre class="language-python"><code class="language-python">from langchain_core.runnables import RunnablePassthrough
+          <pre class="language-python"><code class="language-python">from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-async def format_docs(docs):
+def format_docs(docs):
     return "\n\n".join(
         f"[{doc.metadata.get('source')}#{doc.metadata.get('page')}]\n"
         f"{doc.page_content}"
@@ -1124,10 +1197,14 @@ retriever = vectorstore.as_retriever(
     },
 )
 
+async def retrieve_context(x: dict) -> str:
+    docs = await retriever.ainvoke(x["question"])
+    return format_docs(docs)
+
 async def run_advanced_rag():
     rag_chain = (
         RunnablePassthrough.assign(
-            context=lambda x: format_docs(retriever.invoke(x["question"]))
+            context=RunnableLambda(retrieve_context)
         )
         | rag_prompt
         | model
@@ -1182,12 +1259,33 @@ model_policy = {"primary": "openai:gpt-4.1", "fallback": "openai:gpt-4.1-mini"}<
           </ul>
         </div>
       </article>
+      <article id="keywords" class="card span-3">
+        <div class="card-head">
+          <div class="icon gold">KEY</div>
+          <div class="title">
+            <h2>Keywords</h2>
+            <div class="caption">Core LangChain terms and what they mean in real apps</div>
+          </div>
+        </div>
+        <div class="body">
+          <ul class="mono-list">
+            <li><code>Runnable</code><br>Common interface for prompts, models, retrievers, tools, parsers, and composed chains.</li>
+            <li><code>LCEL</code><br>LangChain Expression Language using <code>|</code>, <code>RunnableParallel</code>, and <code>assign</code> to compose flows.</li>
+            <li><code>create_agent</code><br>High-level LangChain API for tool-calling agents built on LangGraph runtime.</li>
+            <li><code>Middleware</code><br>Agent extension point for model routing, tool call limits, context engineering, and guardrails.</li>
+            <li><code>response_format</code><br>Typed structured output contract for agent final responses.</li>
+            <li><code>Retriever</code><br>Runnable component that returns relevant documents for RAG.</li>
+            <li><code>with_retry</code><br>Runnable wrapper for transient failures such as rate limits or network errors.</li>
+            <li><code>LangSmith</code><br>Tracing, evaluation, debugging, and production observability layer for LangChain apps.</li>
+          </ul>
+        </div>
+      </article>
     </section>
 
     <footer class="footer">
       <div>
         LangChain Cheatsheet - Core Components Reference.
-        Source material was checked against official docs on 2026-06-30.
+        Source material was checked against official docs on 2026-07-01.
       </div>
       <span>
         <a href="https://docs.langchain.com/oss/python/langchain/overview">langchain docs</a>
