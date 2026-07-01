@@ -194,12 +194,11 @@
       color: #163963;
       font-size: 11px;
       line-height: 1.55;
-      white-space: pre;
     }
 
     pre[class*="language-"],
     code[class*="language-"] {
-      background: #fffaff;
+      background: #fffaff !important;
       color: #172033;
       text-shadow: none;
       font-size: 11px;
@@ -208,15 +207,6 @@
       border-left-color: #326aab;
       box-shadow: inset 0 0 0 1px rgba(124, 58, 237, .18), 0 8px 18px rgba(36, 88, 154, .08);
     }
-    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #69758a; font-style: italic; }
-    .token.keyword { color: #7c3aed; font-weight: 900; }
-    .token.string, .token.char { color: #047857; font-weight: 650; }
-    .token.function { color: #0369a1; font-weight: 800; }
-    .token.class-name, .token.constant { color: #b45309; font-weight: 850; }
-    .token.number, .token.boolean { color: #dc2626; font-weight: 800; }
-    .token.operator, .token.punctuation { color: #334155; }
-    .token.builtin, .token.decorator { color: #be185d; font-weight: 800; }
-    .token.attr-name, .token.property { color: #c2410c; font-weight: 750; }
 
     .note {
       display: grid;
@@ -332,20 +322,23 @@
           <pre class="language-python"><code class="language-python">from langchain.chat_models import init_chat_model
 
 model = init_chat_model(
-    "openai:gpt-4.1",
+    "openai:gpt-4o",
     temperature=0.2,
     max_tokens=800,
     timeout=30,
     max_retries=6,
 )
 
-msg = model.invoke([
-    {"role": "system", "content": "Answer in Vietnamese."},
-    {"role": "user", "content": "LangChain la gi?"},
-])
-
-for token in model.stream("Explain LCEL"):
-    print(token.content, end="")</code></pre>
+# Async invoke
+async def run_model():
+    msg = await model.ainvoke([
+        {"role": "system", "content": "Answer in Vietnamese."},
+        {"role": "user", "content": "LangChain la gi?"},
+    ])
+    
+    # Async stream
+    async for token in model.astream("Explain LCEL"):
+        print(token.content, end="")</code></pre>
           <div class="note">
             <p><b>Best:</b> Set keys through environment variables, configure timeout/retry, and log usage plus latency.</p>
             <p class="bad"><b>Mistake:</b> Hard-code API keys or assume every provider supports tool calling the same way.</p>
@@ -416,11 +409,16 @@ prompt = ChatPromptTemplate.from_template(
     "Return JSON only: {topic}\n{format}"
 )
 
+# Composition qua LCEL
 chain = prompt | model | parser
-data = chain.invoke({
-    "topic": "retriever",
-    "format": parser.get_format_instructions(),
-})</code></pre>
+
+# Async execution
+async def parse_data():
+    data = await chain.ainvoke({
+        "topic": "retriever",
+        "format": parser.get_format_instructions(),
+    })
+    return data</code></pre>
           <div class="note">
             <p><b>Best:</b> For important outputs, prefer Pydantic schemas plus structured output.</p>
             <p class="bad"><b>Mistake:</b> Regex JSON out of natural language or skip parse error handling.</p>
@@ -451,16 +449,20 @@ prompt = ChatPromptTemplate.from_template(
 )
 
 chain = prompt | model | StrOutputParser()
-print(chain.invoke({"topic": "LangChain Runnable"}))
 
-parallel = RunnableParallel(
-    summary=chain,
-    upper=RunnableLambda(lambda x: x["topic"].upper()),
-)
+async def run_chains():
+    # Async invoke
+    result = await chain.ainvoke({"topic": "LangChain Runnable"})
+    
+    # Async streaming
+    async for chunk in chain.astream({"topic": "LangChain Runnable"}):
+        print(chunk, end="")
 
-print(parallel.invoke({"topic": "LCEL"}))
-
-reliable = chain.with_retry(stop_after_attempt=3)</code></pre>
+    parallel = RunnableParallel(
+        summary=chain,
+        upper=RunnableLambda(lambda x: x["topic"].upper()),
+    )
+    res_parallel = await parallel.ainvoke({"topic": "LCEL"})</code></pre>
           <div class="note">
             <p><b>Best:</b> Use chains for deterministic tasks that should be easy to test and stream.</p>
             <p class="bad"><b>Mistake:</b> Use an agent for a simple pipeline or leave input/output types uncontrolled.</p>
@@ -488,20 +490,17 @@ from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 
 agent = create_agent(
-    model="openai:gpt-4.1",
+    model="openai:gpt-4o",
     tools=[],
     checkpointer=InMemorySaver(),
 )
 
 config = {"configurable": {"thread_id": "user-42"}}
 
-agent.invoke({"messages": [{"role": "user",
-    "content": "My name is Diem."}]}, config)
-
-result = agent.invoke({"messages": [{"role": "user",
-    "content": "What is my name?"}]}, config)</code></pre>
-          <pre class="language-python"><code class="language-python"># Production: persist short-term memory in Postgres.
-# pip install langgraph-checkpoint-postgres
+async def demo_invoke():
+    await agent.ainvoke({"messages": [{"role": "user", "content": "My name is Diem."}]}, config)
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "What is my name?"}]}, config)</code></pre>
+          <pre class="language-python"><code class="language-python"># Production: persist short-term memory in Postgres async.
 from langchain.agents import create_agent
 from langgraph.checkpoint.postgres import PostgresSaver
 
@@ -511,55 +510,18 @@ with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
     checkpointer.setup()  # create checkpoint tables/indexes once
 
     agent = create_agent(
-        model="openai:gpt-4.1",
+        model="openai:gpt-4o",
         tools=[lookup_customer, create_ticket],
         checkpointer=checkpointer,
     )
 
     config = {"configurable": {"thread_id": "tenant-acme:user-42"}}
-    response = agent.invoke(
-        {"messages": [{"role": "user", "content": "Open a billing ticket"}]},
-        config=config,
-    )</code></pre>
-          <pre class="language-python"><code class="language-python"># Local durable workflow: SQLite checkpointer.
-# pip install langgraph-checkpoint-sqlite
-import sqlite3
-from langgraph.checkpoint.sqlite import SqliteSaver
-
-conn = sqlite3.connect("checkpoints.sqlite", check_same_thread=False)
-checkpointer = SqliteSaver(conn)
-
-agent = create_agent(
-    model="openai:gpt-4.1-mini",
-    tools=[search_docs],
-    checkpointer=checkpointer,
-)
-
-# Use deterministic thread IDs from your app, not random IDs per request.
-config = {"configurable": {"thread_id": "course-ai-engineer:lesson-3"}}
-agent.invoke({"messages": [{"role": "user", "content": "Continue"}]}, config)</code></pre>
-          <pre class="language-python"><code class="language-python"># Async web route pattern.
-async def chat(user_id: str, text: str) -> str:
-    config = {"configurable": {"thread_id": f"user:{user_id}"}}
-    result = await agent.ainvoke(
-        {"messages": [{"role": "user", "content": text}]},
-        config=config,
-    )
-    return result["messages"][-1].content
-
-async def stream_ui(user_id: str, text: str):
-    config = {"configurable": {"thread_id": f"user:{user_id}"}}
-    async for event in agent.astream_events(
-        {"messages": [{"role": "user", "content": text}]},
-        config=config,
-        version="v2",
-    ):
-        if event["event"] == "on_chat_model_stream":
-            chunk = event["data"]["chunk"]
-            if chunk.content:
-                yield {"type": "token", "value": chunk.content}
-        elif event["event"] == "on_tool_start":
-            yield {"type": "tool_start", "name": event["name"]}</code></pre>
+    
+    async def invoke_agent():
+        response = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Open a billing ticket"}]},
+            config=config,
+        )</code></pre>
           <div class="note">
             <p><b>Best:</b> Use stable thread IDs, Postgres for production, SQLite for local durable workflows, and summarization/trim middleware for long conversations.</p>
             <p class="bad"><b>Mistake:</b> Use InMemorySaver in production, skip <code>checkpointer.setup()</code>, or generate a new <code>thread_id</code> for every request.</p>
@@ -588,11 +550,13 @@ emb = OpenAIEmbeddings(
     model="text-embedding-3-small"
 )
 
-query_vec = emb.embed_query("What is RAG?")
-doc_vecs = emb.embed_documents([
-    "Retrieval augments generation.",
-    "Tools let agents call functions.",
-])</code></pre>
+# Async calls
+async def run_embeddings():
+    query_vec = await emb.aembed_query("What is RAG?")
+    doc_vecs = await emb.aembed_documents([
+        "Retrieval augments generation.",
+        "Tools let agents call functions.",
+    ])</code></pre>
           <div class="note">
             <p><b>Best:</b> Use the same embedding model for indexing and querying, and store the model version.</p>
             <p class="bad"><b>Mistake:</b> Mix vectors from different embedding models or embed raw HTML/noisy text.</p>
@@ -618,16 +582,19 @@ doc_vecs = emb.embed_documents([
           <pre class="language-python"><code class="language-python">from langchain_core.vectorstores import InMemoryVectorStore
 
 store = InMemoryVectorStore(emb)
-store.add_documents(chunks)
 
-docs = store.similarity_search(
-    "How do agents use tools?",
-    k=4,
-)
-
-retriever = store.as_retriever(
-    search_kwargs={"k": 4}
-)</code></pre>
+async def store_actions():
+    await store.aadd_documents(chunks)
+    
+    # Async search
+    docs = await store.asimilarity_search(
+        "How do agents use tools?",
+        k=4,
+    )
+    
+    retriever = store.as_retriever(
+        search_kwargs={"k": 4}
+    )</code></pre>
           <div class="note">
             <p><b>Best:</b> Choose a production store with persistence, filtering, and backups.</p>
             <p class="bad"><b>Mistake:</b> use in-memory store for real production data or missing source metadata.</p>
@@ -655,13 +622,10 @@ retriever = store.as_retriever(
     search_kwargs={"k": 5},
 )
 
-docs = retriever.invoke("What is create_agent?")
-
-def format_docs(docs):
-    return "\n\n".join(
-        f"Source: {d.metadata.get('source')}\n{d.page_content}"
-        for d in docs
-    )</code></pre>
+async def retrieve_docs():
+    # Async retrieve
+    docs = await retriever.ainvoke("What is create_agent?")
+    return docs</code></pre>
           <div class="note">
             <p><b>Best:</b> Evaluate recall separately, use metadata filters, and cite sources.</p>
             <p class="bad"><b>Mistake:</b> Stuff too many documents into context or skip retrieval-quality measurement.</p>
@@ -680,22 +644,23 @@ def format_docs(docs):
         <div class="body">
           <div class="mini">
             <div class="fact"><b>Concept</b> Load PDFs, web pages, CSVs, folders, and databases into documents.</div>
-            <div class="fact"><b>Use when</b> Ingest documents before when split/embed.</div>
+            <div class="fact"><b>Use when</b> Ingest documents before parsing/splitting/embedding.</div>
             <div class="fact"><b>Constructor</b> Provider/package specific loader.</div>
-            <div class="fact"><b>Methods</b> <code>load</code>, <code>lazy_load</code>, <code>load_and_split</code></div>
+            <div class="fact"><b>Methods</b> <code>load</code>, <code>aload</code>, <code>load_and_split</code></div>
           </div>
           <pre class="language-python"><code class="language-python">from langchain_community.document_loaders import (
     PyPDFLoader,
     WebBaseLoader,
-    DirectoryLoader,
 )
 
-pdf_docs = PyPDFLoader("report.pdf").load()
-web_docs = WebBaseLoader(
-    "https://example.com"
-).load()
-
-# Loaders return list[Document]</code></pre>
+async def load_all():
+    # Sử dụng aload() async để tải không chặn
+    pdf_loader = PyPDFLoader("report.pdf")
+    pdf_docs = await pdf_loader.aload()
+    
+    web_loader = WebBaseLoader("https://example.com")
+    web_docs = await web_loader.aload()
+    return pdf_docs + web_docs</code></pre>
           <div class="note">
             <p><b>Best:</b> Normalize encoding, remove boilerplate, and store source/page metadata.</p>
             <p class="bad"><b>Mistake:</b> Ingest raw HTML or ignore duplicate documents.</p>
@@ -726,7 +691,9 @@ splitter = RecursiveCharacterTextSplitter(
     add_start_index=True,
 )
 
-chunks = splitter.split_documents(pdf_docs)</code></pre>
+# Chạy trong background thread
+async def chunk_docs(docs):
+    return await asyncio.to_thread(splitter.split_documents, docs)</code></pre>
           <div class="note">
             <p><b>Best:</b> Tune chunk size with real queries and keep overlap only as large as needed.</p>
             <p class="bad"><b>Mistake:</b> Chunks that are too small lose context; chunks that are too large reduce recall.</p>
@@ -791,21 +758,22 @@ class SearchInput(BaseModel):
     query: str = Field(description="Search query")
 
 @tool(args_schema=SearchInput)
-def search_docs(query: str) -> str:
+async def search_docs(query: str) -> str:
     """Search internal docs."""
     return "Relevant snippet about LangChain agents."
 
 agent = create_agent(
-    model="openai:gpt-4.1",
+    model="openai:gpt-4o",
     tools=[search_docs],
     system_prompt="Answer briefly. Use tools when needed.",
 )
 
-result = agent.invoke({
-    "messages": [{"role": "user",
-                  "content": "Agent differs from chain?"}]
-})
-print(result["messages"][-1].content)</code></pre>
+# Async agent execute
+async def run_agent():
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "Agent differs from chain?"}]
+    })
+    print(result["messages"][-1].content)</code></pre>
           <div class="note">
             <p><b>Best:</b> Use snake_case tool names, strict schemas, and docstrings that say when to use each tool.</p>
             <p class="bad"><b>Mistake:</b> Expose too many overlapping tools or allow side-effect tools without approval.</p>
@@ -838,8 +806,9 @@ messages = [
     HumanMessage("Explain Runnable in 2 lines."),
 ]
 
-response = model.invoke(messages)
-print(response.content)</code></pre>
+async def call_chat():
+    response = await model.ainvoke(messages)
+    print(response.content)</code></pre>
           <div class="note">
             <p><b>Best:</b> Use messages for multi-turn chat instead of manually concatenating prompt strings.</p>
             <p class="bad"><b>Mistake:</b> Stuff the entire conversation history into the context window forever.</p>
@@ -865,17 +834,7 @@ print(response.content)</code></pre>
           <pre class="language-python"><code class="language-python">from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-docs = PyPDFLoader("handbook.pdf").load()
-chunks = RecursiveCharacterTextSplitter(
-    chunk_size=900,
-    chunk_overlap=160,
-).split_documents(docs)
-
-store = InMemoryVectorStore(emb)
-store.add_documents(chunks)
-retriever = store.as_retriever(search_kwargs={"k": 4})
-
-def format_docs(docs):
+async def format_docs(docs):
     return "\n\n".join(
         f"Source: {d.metadata.get('source')}\n{d.page_content}"
         for d in docs
@@ -888,12 +847,19 @@ Context:
 Question: {question}
 """)
 
-question = "What is the main policy?"
-context = format_docs(retriever.invoke(question))
-answer = (prompt | model | StrOutputParser()).invoke({
-    "context": context,
-    "question": question,
-})</code></pre>
+async def run_rag(question: str):
+    # Retrieve async
+    retriever = store.as_retriever(search_kwargs={"k": 4})
+    docs = await retriever.ainvoke(question)
+    context = await format_docs(docs)
+    
+    # Chain async invoke
+    chain = prompt | model | StrOutputParser()
+    answer = await chain.ainvoke({
+        "context": context,
+        "question": question,
+    })
+    return answer</code></pre>
           <div class="note">
             <p><b>Best:</b> Cite sources, evaluate retrieval separately, and add a reranker when the corpus is large.</p>
             <p class="bad"><b>Mistake:</b> Let the model answer outside context or skip metadata filtering by user permissions.</p>
@@ -932,115 +898,102 @@ from langchain.callbacks.tracers import LangChainTracer</code></pre>
         </div>
       </article>
 
-      <article class="card">
+      <article class="card span-2">
         <div class="card-head">
-          <div class="icon">LG</div>
+          <div class="icon blue">API</div>
           <div class="title">
-            <h2>LangGraph Basics</h2>
-            <div class="caption">Stateful multi-agent workflows</div>
+            <h2>FastAPI Streaming SSE</h2>
+            <div class="caption">Expose LangChain streaming chains qua FastAPI StreamingResponse</div>
           </div>
         </div>
         <div class="body">
-          <div class="mini">
-            <div class="fact"><b>Concept</b> Graph runtime for stateful agents, checkpoints, control flow.</div>
-            <div class="fact"><b>Use when</b> Multi-step workflows, human-in-the-loop, and durable execution.</div>
-            <div class="fact"><b>Constructor</b> <code>StateGraph(State)</code></div>
-            <div class="fact"><b>Methods</b> <code>add_node</code>, <code>add_edge</code>, <code>compile</code></div>
-          </div>
-          <pre class="language-python"><code class="language-python">from typing import TypedDict
-from langgraph.graph import StateGraph, START, END
+          <pre class="language-python"><code class="language-python">from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import json
 
-class State(TypedDict):
-    messages: list
+app = FastAPI()
 
-def call_model(state: State):
-    return {"messages": [
-        model.invoke(state["messages"])
-    ]}
-
-graph = StateGraph(State)
-graph.add_node("model", call_model)
-graph.add_edge(START, "model")
-graph.add_edge("model", END)
-app = graph.compile()</code></pre>
-          <div class="note">
-            <p><b>Best:</b> Start with a LangChain agent; move to a graph when you need explicit control flow.</p>
-            <p class="bad"><b>Mistake:</b> Build a custom graph when <code>create_agent</code> is already enough.</p>
-          </div>
+@app.post("/stream")
+async def chat_stream(prompt_str: str):
+    async def event_generator():
+        # Sử dụng astream_events v2 để xuất tokens/events bất đồng bộ
+        async for event in chain.astream_events({"topic": prompt_str}, version="v2"):
+            if event["event"] == "on_chain_stream":
+                chunk = event["data"]["chunk"]
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+                
+    return StreamingResponse(event_generator(), media_type="text/event-stream")</code></pre>
         </div>
       </article>
 
       <article class="card">
         <div class="card-head">
-          <div class="icon red">ENV</div>
+          <div class="icon red">ERR</div>
           <div class="title">
-            <h2>Environment Setup</h2>
-            <div class="caption">Install packages and set API keys</div>
+            <h2>Error Handling &amp; Fallbacks</h2>
+            <div class="caption">with_retry, with_fallbacks và exceptions management</div>
           </div>
         </div>
         <div class="body">
-          <div class="mini">
-            <div class="fact"><b>Concept</b> LangChain core + provider integrations + community loaders.</div>
-            <div class="fact"><b>Use when</b> Start a project or standardize dependencies.</div>
-            <div class="fact"><b>Packages</b> <code>langchain</code>, <code>langchain-openai</code>, <code>langchain-community</code></div>
-            <div class="fact"><b>Security</b> Keep API keys in environment variables; do not commit secrets.</div>
-          </div>
-          <pre class="language-python"><code class="language-python">pip install -U langchain langchain-openai
-pip install -U langchain-community langchain-text-splitters
-pip install -U pypdf beautifulsoup4
+          <pre class="language-python"><code class="language-python"># Cấu hình retry tự động khi xảy ra transient errors
+model_with_retry = model.with_retry(
+    stop_after_attempt=3,
+    wait_exponential_jitter=True
+)
 
-# .env
-OPENAI_API_KEY="sk-..."
-LANGSMITH_TRACING="true"
-LANGSMITH_API_KEY="lsv2_..."
+# Chuyển hướng sang model dự phòng (fallback) khi lỗi nặng hoặc timeout
+fallback_model = init_chat_model("anthropic:claude-3-5-sonnet")
+model_with_fallback = model_with_retry.with_fallbacks([fallback_model])
 
-python -c "import langchain; print(langchain.__version__)"</code></pre>
-          <div class="note">
-            <p><b>Best:</b> Pin versions in production and separate dev/staging/prod environments.</p>
-            <p class="bad"><b>Mistake:</b> Install too many provider packages or commit files containing secrets.</p>
-          </div>
+# Gắn vào LCEL chain
+chain = prompt | model_with_fallback | StrOutputParser()</code></pre>
         </div>
       </article>
 
       <article class="card">
         <div class="card-head">
-          <div class="icon gold">FS</div>
+          <div class="icon gold">CAC</div>
           <div class="title">
-            <h2>Few-Shot Prompting</h2>
-            <div class="caption">Examples in prompt templates</div>
+            <h2>Semantic Caching</h2>
+            <div class="caption">Giảm token cost qua Redis Semantic Cache</div>
           </div>
         </div>
         <div class="body">
-          <div class="mini">
-            <div class="fact"><b>Concept</b> Provide input/output examples so the model learns format and style.</div>
-            <div class="fact"><b>Use when</b> Classification, extraction, style rewriting, and hard formatting tasks.</div>
-            <div class="fact"><b>Constructor</b> <code>FewShotPromptTemplate(...)</code></div>
-            <div class="fact"><b>Parameters</b> <code>examples</code>, <code>example_prompt</code>, <code>suffix</code></div>
-          </div>
-          <pre class="language-python"><code class="language-python">from langchain_core.prompts import (
-    FewShotPromptTemplate,
-    PromptTemplate,
-)
+          <pre class="language-python"><code class="language-python">from langchain_core.globals import set_llm_cache
+from langchain_community.cache import RedisSemanticCache
+from langchain_openai import OpenAIEmbeddings
 
-examples = [
-    {"input": "happy", "output": "positive"},
-    {"input": "late", "output": "negative"},
-]
-
-example_prompt = PromptTemplate.from_template(
-    "Input: {input}\nLabel: {output}"
-)
-
-prompt = FewShotPromptTemplate(
-    examples=examples,
-    example_prompt=example_prompt,
-    suffix="Input: {text}\nLabel:",
-    input_variables=["text"],
+# Kích hoạt semantic cache giúp so khớp câu hỏi có nghĩa tương đồng
+set_llm_cache(
+    RedisSemanticCache(
+        redis_url="redis://localhost:6379",
+        embedding=OpenAIEmbeddings(model="text-embedding-3-small"),
+        score_threshold=0.1
+    )
 )</code></pre>
-          <div class="note">
-            <p><b>Best:</b> Keep examples short, consistent, and focused on important edge cases.</p>
-            <p class="bad"><b>Mistake:</b> Provide conflicting examples or examples so long they waste context.</p>
+        </div>
+      </article>
+
+      <article class="card span-2">
+        <div class="card-head">
+          <div class="icon green">TST</div>
+          <div class="title">
+            <h2>Testing Chains &amp; Agents</h2>
+            <div class="caption">Unit test logic chains bằng mock responses</div>
           </div>
+        </div>
+        <div class="body">
+          <pre class="language-python"><code class="language-python">import pytest
+from langchain_core.messages import AIMessage
+
+@pytest.mark.asyncio
+async def test_chain_output_logic(mocker):
+    # Mock model call để chạy test độc lập không tốn API cost
+    mock_invoke = mocker.patch.object(model, "ainvoke")
+    mock_invoke.return_value = AIMessage(content="Mocked summary result")
+    
+    response = await chain.ainvoke({"topic": "test"})
+    assert response == "Mocked summary result"</code></pre>
         </div>
       </article>
 
@@ -1130,9 +1083,11 @@ agent = create_agent(
     response_format=TicketTriage,
 )
 
-result = agent.invoke({
-    "messages": [{"role": "user", "content": "Customer c_123 has outage"}]
-})</code></pre>
+async def triage_ticket():
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "Customer c_123 has outage"}]
+    })
+    return result</code></pre>
           <div class="note">
             <p><b>Use agents for:</b> tool selection, multi-step decisions, missing information, and external actions.</p>
             <p class="bad"><b>Keep chains for:</b> deterministic transforms, extraction, fixed RAG, formatting, and simple classification.</p>
@@ -1152,7 +1107,7 @@ result = agent.invoke({
           <pre class="language-python"><code class="language-python">from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
-def format_docs(docs):
+async def format_docs(docs):
     return "\n\n".join(
         f"[{doc.metadata.get('source')}#{doc.metadata.get('page')}]\n"
         f"{doc.page_content}"
@@ -1169,19 +1124,21 @@ retriever = vectorstore.as_retriever(
     },
 )
 
-rag_chain = (
-    RunnablePassthrough.assign(
-        context=lambda x: format_docs(retriever.invoke(x["question"]))
+async def run_advanced_rag():
+    rag_chain = (
+        RunnablePassthrough.assign(
+            context=lambda x: format_docs(retriever.invoke(x["question"]))
+        )
+        | rag_prompt
+        | model
+        | StrOutputParser()
     )
-    | rag_prompt
-    | model
-    | StrOutputParser()
-)
 
-answer = rag_chain.invoke({
-    "question": "What is the refund SLA?",
-    "tenant_id": "acme",
-})</code></pre>
+    answer = await rag_chain.ainvoke({
+        "question": "What is the refund SLA?",
+        "tenant_id": "acme",
+    })
+    return answer</code></pre>
           <ul class="mono-list">
             <li><code>MultiQueryRetriever</code><br>Generate query variants to increase recall when users ask vague questions.</li>
             <li><code>ContextualCompressionRetriever</code><br>Compress retrieved documents before generation to reduce noise and token cost.</li>
@@ -1222,176 +1179,6 @@ model_policy = {"primary": "openai:gpt-4.1", "fallback": "openai:gpt-4.1-mini"}<
             <li><code>Source contracts</code><br>For RAG, every answer should carry source ids, chunk ids, retrieval score, and index version.</li>
             <li><code>Side effects</code><br>Tools that write, send, delete, purchase, or mutate state need confirmation or human approval.</li>
             <li><code>Fallbacks</code><br>Handle model timeout, tool failure, empty retrieval, parse failure, and rate-limit separately.</li>
-          </ul>
-        </div>
-      </article>
-
-      <article id="middleware-context" class="card span-2">
-        <div class="card-head">
-          <div class="icon gold">MW</div>
-          <div class="title">
-            <h2>Middleware &amp; Context Engineering</h2>
-            <div class="caption">Best practices for policy, dynamic prompts, PII, retries, and runtime state</div>
-          </div>
-        </div>
-        <div class="body">
-          <pre class="language-python"><code class="language-python">from langchain.agents import create_agent
-from langchain.agents.middleware import (
-    HumanInTheLoopMiddleware,
-    SummarizationMiddleware,
-)
-from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.types import Command
-
-with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
-    checkpointer.setup()
-
-    agent = create_agent(
-        model="openai:gpt-4.1",
-        tools=[read_docs, send_email, create_ticket],
-        system_prompt=(
-            "You are a support engineer. Use tools for facts. "
-            "Never perform external actions without approval."
-        ),
-        checkpointer=checkpointer,
-        middleware=[
-            SummarizationMiddleware(
-                model="openai:gpt-4.1-mini",
-                max_tokens_before_summary=4000,
-                messages_to_keep=8,
-            ),
-            HumanInTheLoopMiddleware(
-                interrupt_on={
-                    "send_email": {
-                        "allowed_decisions": ["approve", "edit", "reject"]
-                    },
-                    "create_ticket": {
-                        "allowed_decisions": ["approve", "reject"]
-                    },
-                }
-            ),
-        ],
-    )
-
-config = {
-    "configurable": {"thread_id": "customer-123"},
-    "metadata": {"tenant_id": "acme", "risk": "external_action"},
-}
-
-result = agent.invoke(
-    {"messages": [{"role": "user", "content": "Email the refund plan"}]},
-    config=config,
-)
-
-# If the middleware interrupts, show result["__interrupt__"] in your UI.
-# Decisions must match the interrupt action order.
-approved = agent.invoke(
-    Command(resume={"decisions": [{"type": "approve"}]}),
-    config=config,
-)
-
-edited = agent.invoke(
-    Command(resume={
-        "decisions": [{
-            "type": "edit",
-            "args": {"recipient": "billing@example.com", "subject": "Refund plan"},
-        }]
-    }),
-    config=config,
-)</code></pre>
-          <pre class="language-python"><code class="language-python"># Async HITL resume in an API handler.
-async def resume_after_review(thread_id: str, approved: bool):
-    decision = {"type": "approve"} if approved else {
-        "type": "reject",
-        "reason": "Human reviewer rejected this action.",
-    }
-    return await agent.ainvoke(
-        Command(resume={"decisions": [decision]}),
-        config={"configurable": {"thread_id": thread_id}},
-    )
-
-async def stream_reviewable_run(thread_id: str, user_text: str):
-    async for event in agent.astream_events(
-        {"messages": [{"role": "user", "content": user_text}]},
-        config={"configurable": {"thread_id": thread_id}},
-        version="v2",
-    ):
-        if event["event"] == "on_chain_stream":
-            chunk = event["data"].get("chunk") or {}
-            if "__interrupt__" in chunk:
-                yield {"type": "approval_required", "payload": chunk["__interrupt__"]}</code></pre>
-          <ul class="mono-list">
-            <li><code>Dynamic system prompt</code><br>Build system instructions from user role, product, locale, task type, and risk level.</li>
-            <li><code>PII policy</code><br>Scrub or redact sensitive fields before tracing; never log raw secrets, tokens, or full customer records.</li>
-            <li><code>Tool policy</code><br>Block risky tools until confirmation; add allowlists by tenant/user role.</li>
-            <li><code>Retry policy</code><br>Retry transient provider/tool errors, not deterministic schema or permission errors.</li>
-            <li><code>Human-in-loop</code><br>Use <code>approve</code>, <code>edit</code>, <code>reject</code>, or <code>respond</code>; persist the thread so the same run can resume later.</li>
-            <li><code>Context budget</code><br>Summarize history, trim documents, and prefer compact context over dumping everything into the model.</li>
-          </ul>
-        </div>
-      </article>
-
-      <article id="eval-ops" class="card">
-        <div class="card-head">
-          <div class="icon red">EVAL</div>
-          <div class="title">
-            <h2>Evaluation &amp; Ops</h2>
-            <div class="caption">What to measure before calling a chain or agent production-ready</div>
-          </div>
-        </div>
-        <div class="body">
-          <pre class="language-python"><code class="language-python"># Minimal eval harness shape for a LangChain RAG/agent workflow.
-dataset = [
-    {
-        "question": "What is the refund SLA?",
-        "expected_contains": ["30 days", "refund policy"],
-        "must_cite": True,
-    },
-    {
-        "question": "Delete customer account 42",
-        "expected_behavior": "requires_human_approval",
-    },
-]
-
-for case in dataset:
-    result = app.invoke(
-        {"messages": [{"role": "user", "content": case["question"]}]},
-        config={"metadata": {"eval_case": case["question"]}},
-    )
-    trace = {
-        "answer": result,
-        "prompt_version": "support_v4",
-        "index_version": "kb_2026_06_30",
-        "model": "openai:gpt-4.1",
-    }
-    # Assert citations, refusal behavior, schema validity, and latency budget.</code></pre>
-          <ul class="mono-list">
-            <li><code>Golden set</code><br>Real user questions, expected outputs, must-not-answer cases, empty-retrieval cases.</li>
-            <li><code>Regression</code><br>Run evals on every prompt, retriever, model, chunking, or tool schema change.</li>
-            <li><code>Trace tags</code><br>Tag by app, feature, user segment, prompt version, index version, and experiment id.</li>
-            <li><code>Metrics</code><br>Correctness, groundedness, refusal quality, latency, token cost, tool error rate, parse failure rate.</li>
-            <li><code>Debug order</code><br>Check retrieval first, then prompt, then model, then parser, then tool permissions.</li>
-            <li><code>Release gates</code><br>Ship only when eval score, latency, and cost stay inside explicit thresholds.</li>
-          </ul>
-        </div>
-      </article>
-
-      <article class="card span-3">
-        <div class="card-head">
-          <div class="icon green">MAP</div>
-          <div class="title">
-            <h2>Quick Decision Map</h2>
-            <div class="caption">Pick the right LangChain component</div>
-          </div>
-        </div>
-        <div class="body">
-          <ul class="mono-list">
-            <li><code>Runnable chain</code><br>Fixed prompt -> model -> parser flow, easy to test.</li>
-            <li><code>create_agent</code><br>Model must choose tools or perform multiple steps.</li>
-            <li><code>response_format</code><br>Application needs reliable JSON/schema output.</li>
-            <li><code>Retriever</code><br>Needs relevant documents at query time.</li>
-            <li><code>Memory/checkpointer</code><br>Multi-turn chat that must resume by thread.</li>
-            <li><code>Middleware</code><br>Retries, PII filtering, human approval, guardrails.</li>
           </ul>
         </div>
       </article>
